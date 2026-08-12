@@ -39,7 +39,7 @@ const BODY_TYPES = [
 export function CheckoutScreen({ navigation }: Props) {
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
-  const { show } = useToast();
+  const { show, hide } = useToast();
   const { session } = useAuth();
   const { lines, totals, promoCode, fulfillment, setFulfillment, clear } = useCart();
   const { placeOrder, credit } = useOrders();
@@ -117,7 +117,7 @@ export function CheckoutScreen({ navigation }: Props) {
   const place = () => {
     if (placing || lines.length === 0) return;
     setPlacing(true);
-    show({ title: t('toast.placingOrder'), tone: 'loading' });
+    show({ title: t('toast.placingOrder'), tone: 'loading', variant: 'hud' });
 
     // Stands in for POST /orders.
     setTimeout(() => {
@@ -151,13 +151,10 @@ export function CheckoutScreen({ navigation }: Props) {
 
       clear();
       setPlacing(false);
-      show({
-        title: t('checkout.placed'),
-        body: t('checkout.placedBody', { reference: order.reference }),
-        tone: 'success',
-        icon: 'check-circle',
-      });
-      navigation.replace('OrderTracking', { orderId: order.id });
+      // The confirmation screen carries the success message now, so a toast on
+      // top of it would say the same thing twice.
+      hide();
+      navigation.replace('OrderPlaced', { orderId: order.id });
     }, 1200);
   };
 

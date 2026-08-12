@@ -7,6 +7,7 @@ import { CheckoutScreen } from '../screens/CheckoutScreen';
 import { LegalScreen } from '../screens/LegalScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MyCreditScreen } from '../screens/MyCreditScreen';
+import { OrderPlacedScreen } from '../screens/OrderPlacedScreen';
 import { OrderTrackingScreen } from '../screens/OrderTrackingScreen';
 import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { SearchScreen } from '../screens/SearchScreen';
@@ -50,6 +51,13 @@ export function RootNavigator() {
             <Stack.Screen name="CategoryListing" component={CategoryListingScreen} />
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
+            <Stack.Screen
+              name="OrderPlaced"
+              component={OrderPlacedScreen}
+              // The order exists now: swiping back to a checkout that already
+              // submitted would be wrong, so the gesture is off here.
+              options={{ animation: 'fade', gestureEnabled: false }}
+            />
             <Stack.Screen
               name="OrderTracking"
               component={OrderTrackingScreen}

@@ -252,6 +252,16 @@
     "placed": "تم تقديم الطلب",
     "placedBody": "الطلب {{reference}} في الطريق"
   },
+  "orderPlaced": {
+    "title": "تم تنفيذ الطلب!",
+    "subtitle": "شكرًا لك — نجهّز طلبك الآن.",
+    "reference": "الطلب {{reference}}",
+    "totalPaid": "الإجمالي المدفوع",
+    "deliveryEta": "يصل خلال {{minutes}} دقيقة تقريبًا",
+    "pickupReady": "سيكون جاهزًا عند الموقف قريبًا",
+    "track": "تتبع الطلب",
+    "continue": "متابعة التسوق"
+  },
   "address": {
     "addTitle": "إضافة عنوان جديد",
     "editTitle": "تعديل العنوان",

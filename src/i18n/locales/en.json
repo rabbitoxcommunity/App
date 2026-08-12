@@ -216,6 +216,16 @@
     "placed": "Order placed",
     "placedBody": "Order {{reference}} is on its way"
   },
+  "orderPlaced": {
+    "title": "Order placed!",
+    "subtitle": "Thanks — we're getting your order ready.",
+    "reference": "Order {{reference}}",
+    "totalPaid": "Total paid",
+    "deliveryEta": "Arriving in about {{minutes}} min",
+    "pickupReady": "We'll have it at the bay shortly",
+    "track": "Track order",
+    "continue": "Continue shopping"
+  },
   "address": {
     "addTitle": "Add a new address",
     "editTitle": "Edit address",

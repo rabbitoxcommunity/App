@@ -16,6 +16,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
@@ -32,6 +33,13 @@ export type ToastOptions = {
   action?: { label: string; onPress: () => void };
   /** ms; `loading` toasts stay until dismissed unless a duration is given. */
   duration?: number;
+  /**
+   * `banner` (default) drops in from the top. `hud` is the centred, blurred
+   * panel iOS uses for work in progress — it dims and blocks the screen, which
+   * is what you want while an order is being placed and a second tap must not
+   * land.
+   */
+  variant?: 'banner' | 'hud';
 };
 
 type ToastContextValue = {
@@ -92,6 +100,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ToastOptions | null>(null);
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-120)).current;
+  const hudOpacity = useRef(new Animated.Value(0)).current;
+  const hudScale = useRef(new Animated.Value(0.9)).current;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearTimer = () => {
@@ -101,31 +111,47 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const hide = useCallback(() => {
     clearTimer();
-    Animated.timing(translateY, {
-      toValue: -140,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: -140, duration: 180, useNativeDriver: true }),
+      // The HUD fades and shrinks slightly, the way iOS dismisses one.
+      Animated.timing(hudOpacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.timing(hudScale, { toValue: 0.94, duration: 160, useNativeDriver: true }),
+    ]).start(({ finished }) => {
       if (finished) setToast(null);
     });
-  }, [translateY]);
+  }, [translateY, hudOpacity, hudScale]);
 
   const show = useCallback(
     (options: ToastOptions) => {
       clearTimer();
       setToast(options);
-      translateY.setValue(-120);
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 18,
-        stiffness: 180,
-      }).start();
+
+      if (options.variant === 'hud') {
+        hudOpacity.setValue(0);
+        hudScale.setValue(0.9);
+        Animated.parallel([
+          Animated.timing(hudOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
+          Animated.spring(hudScale, {
+            toValue: 1,
+            useNativeDriver: true,
+            damping: 16,
+            stiffness: 220,
+          }),
+        ]).start();
+      } else {
+        translateY.setValue(-120);
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          damping: 18,
+          stiffness: 180,
+        }).start();
+      }
 
       const duration = options.duration ?? (options.tone === 'loading' ? 0 : 3000);
       if (duration > 0) timer.current = setTimeout(hide, duration);
     },
-    [hide, translateY],
+    [hide, translateY, hudOpacity, hudScale],
   );
 
   useEffect(() => clearTimer, []);
@@ -150,11 +176,42 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<ToastContextValue>(() => ({ show, hide }), [show, hide]);
 
   const tone = TONES[toast?.tone ?? 'dark'];
+  const isHud = toast?.variant === 'hud';
 
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {toast && (
+
+      {toast && isHud && (
+        <Animated.View
+          // `auto`, not `box-none`: the scrim swallows taps for as long as the
+          // HUD is up, so the action behind it cannot be fired twice.
+          pointerEvents="auto"
+          style={[styles.hudScrim, { opacity: hudOpacity }]}
+        >
+          <Animated.View style={{ transform: [{ scale: hudScale }] }}>
+            <BlurView
+              intensity={60}
+              tint="systemThickMaterialDark"
+              style={styles.hud}
+              accessibilityLiveRegion="polite"
+            >
+              {toast.tone === 'loading' ? (
+                <ActivityIndicator size="large" color={colors.onPrimary} />
+              ) : (
+                <View style={styles.hudCheck}>
+                  <Icon name={toast.icon ?? 'check'} size={34} color={colors.onPrimary} />
+                </View>
+              )}
+              <Text style={styles.hudTitle} numberOfLines={2}>
+                {toast.title}
+              </Text>
+            </BlurView>
+          </Animated.View>
+        </Animated.View>
+      )}
+
+      {toast && !isHud && (
         <Animated.View
           pointerEvents="box-none"
           style={[
@@ -221,6 +278,39 @@ export function useToast(): ToastContextValue {
 }
 
 const styles = StyleSheet.create({
+  hudScrim: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(20, 24, 28, 0.22)',
+  },
+  hud: {
+    // iOS sizes its progress HUD as a soft square, not a wide bar.
+    width: 168,
+    minHeight: 168,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    // `overflow: hidden` is what clips the blur to the rounded corners.
+    overflow: 'hidden',
+  },
+  hudCheck: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hudTitle: {
+    fontSize: fontSize.bodyLg,
+    fontWeight: weight.bold,
+    color: colors.onPrimary,
+    textAlign: 'center',
+  },
   wrapper: {
     position: 'absolute',
     start: spacing.lg,

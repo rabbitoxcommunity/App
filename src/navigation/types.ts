@@ -19,6 +19,7 @@ export type RootStackParamList = {
   CategoryListing: { categoryId: string };
   ProductDetail: { productId: string; variantId?: string };
   Checkout: undefined;
+  OrderPlaced: { orderId: string };
   /** Omit `orderId` to track whichever order is currently live. */
   OrderTracking: { orderId?: string } | undefined;
   MyCredit: undefined;
