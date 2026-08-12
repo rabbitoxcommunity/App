@@ -90,6 +90,10 @@ export function HomeScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        // Without this the first tap after typing is swallowed to dismiss the
+        // keyboard and never reaches the search button — you would have to tap
+        // it twice. "handled" still dismisses on taps that hit no child.
+        keyboardShouldPersistTaps="handled"
       >
         {/* Address + notifications */}
         <View style={styles.topRow}>
@@ -145,6 +149,9 @@ export function HomeScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                // Nested scroll views do not inherit it, and these pills sit
+                // directly under the field the keyboard belongs to.
+                keyboardShouldPersistTaps="handled"
                 // Shrinks rather than grows, so Clear stays put beside the
                 // pills instead of being pushed off the trailing edge once the
                 // rail overflows.
@@ -241,6 +248,7 @@ export function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.rail}
         >
           {popularFiltered.map((product, index) => (
