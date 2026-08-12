@@ -370,3 +370,4 @@ export const DELIVERY_ETA_MINUTES = 30;
 export const PROMO_CODES: Record<string, { percentOff: number }> = {
   FRESH10: { percentOff: 10 },
 };
+

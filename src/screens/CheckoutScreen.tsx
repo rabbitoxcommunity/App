@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
@@ -10,21 +10,8 @@ import { useToast } from '../components/Toast';
 import { AppHeader, Screen, TextLink } from '../components/ui';
 import { t as tr, variantLabel } from '../data/catalog';
 import { DELIVERY_ETA_MINUTES } from '../data/mock';
-import {
-  CAR_COLOURS,
-  DEFAULT_CAR,
-  PAYMENT_METHODS,
-  PICKUP_STORES,
-  slotDays,
-  slotsForDate,
-} from '../data/orders';
-import type {
-  Address,
-  CarProfile,
-  DeliverySlot,
-  FulfillmentType,
-  PaymentMethodKind,
-} from '../data/types';
+import { DEFAULT_CAR, PAYMENT_METHODS, PICKUP_STORES } from '../data/orders';
+import type { Address, CarProfile, FulfillmentType, PaymentMethodKind } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { type AddressDraft, useAddresses } from '../store/AddressesContext';
@@ -34,11 +21,19 @@ import { availableCredit, useOrders } from '../store/OrdersContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
 import { AddressSheet } from './AddressSheet';
-import { SlotPickerSheet } from './SlotPickerSheet';
+import { CarColourSheet } from './CarColourSheet';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 
 const CURBSIDE_BAY = 3;
+
+/** Paired with their labels here so adding a body type is a one-line change. */
+const BODY_TYPES = [
+  { value: 'sedan', labelKey: 'checkout.sedan' },
+  { value: 'suv', labelKey: 'checkout.suv' },
+  { value: 'pickup', labelKey: 'checkout.pickupTruck' },
+  { value: 'coupe', labelKey: 'checkout.coupe' },
+] as const satisfies readonly { value: CarProfile['bodyType']; labelKey: string }[];
 
 export function CheckoutScreen({ navigation }: Props) {
   const { t, language } = useLang();
@@ -62,24 +57,14 @@ export function CheckoutScreen({ navigation }: Props) {
   /** `null` while adding; the address itself while editing. */
   const [editing, setEditing] = useState<Address | null>(null);
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);
-  const [timing, setTiming] = useState<'asap' | 'slot'>('asap');
-  const [slot, setSlot] = useState<DeliverySlot | null>(null);
-  const [slotSheetOpen, setSlotSheetOpen] = useState(false);
-  const [car, setCar] = useState<CarProfile>(DEFAULT_CAR);
+  /** Curbside only: how close the customer already is when they order. */
+  const [arrival, setArrival] = useState<'on_way' | 'near'>('on_way');
+  // The plate starts empty — it is the one field only the customer can fill in,
+  // so seeding it would pass a placeholder off as an entered value.
+  const [car, setCar] = useState<CarProfile>({ ...DEFAULT_CAR, plate: '' });
+  const [colourSheetOpen, setColourSheetOpen] = useState(false);
   const [paymentId, setPaymentId] = useState('pay-card');
   const [placing, setPlacing] = useState(false);
-
-  /**
-   * Screens 06 and 06c both preview a slot under the "Schedule a slot" /
-   * "Pick a time" row before one has been chosen — today's recommended window.
-   */
-  const slotPreview = useMemo(() => {
-    const today = slotDays()[0];
-    const shown = slot ?? slotsForDate(today).find((s) => s.recommended);
-    if (!shown) return t('slots.subtitle');
-    const label = tr(shown.label, language);
-    return shown.date === today ? t('checkout.slotToday', { slot: label }) : label;
-  }, [slot, language, t]);
 
   const openAddAddress = () => {
     setEditing(null);
@@ -104,14 +89,6 @@ export function CheckoutScreen({ navigation }: Props) {
     setAddressSheetOpen(false);
   };
 
-  const cycleColour = () => {
-    setCar((c) => {
-      const at = CAR_COLOURS.findIndex((o) => o.hex === c.colourHex);
-      const next = CAR_COLOURS[(at + 1) % CAR_COLOURS.length];
-      return { ...c, colourHex: next.hex, colour: next.name };
-    });
-  };
-
   const store = PICKUP_STORES[0];
   const isCurbside = fulfillment === 'pickup';
   const creditApproved = !!session?.customer.creditApproved;
@@ -130,11 +107,11 @@ export function CheckoutScreen({ navigation }: Props) {
   const payment = paymentMethods.find((m) => m.id === paymentId) ?? paymentMethods[0];
 
   /**
-   * Curbside never carries a delivery fee, and a scheduled slot overrides the
-   * flat ASAP fee — including free off-peak slots.
+   * Curbside never carries a delivery fee. Home delivery is always ASAP — it no
+   * longer offers a time picker — so it always pays the flat fee.
    */
-  const deliveryFee = isCurbside ? 0 : timing === 'slot' && slot ? (slot.fee ?? 0) : totals.deliveryFee;
-  const total = Math.round((totals.subtotal - totals.discount + deliveryFee) * 100) / 100;
+  const deliveryFee = isCurbside ? 0 : totals.deliveryFee;
+  const total =Math.round((totals.subtotal - totals.discount + deliveryFee) * 100) / 100;
 
   const place = () => {
     if (placing || lines.length === 0) return;
@@ -165,7 +142,6 @@ export function CheckoutScreen({ navigation }: Props) {
         paymentKind: (payment?.kind ?? 'card') as PaymentMethodKind,
         addressId: isCurbside ? undefined : addressId,
         storeId: isCurbside ? store.id : undefined,
-        slotLabel: timing === 'slot' && slot ? slot.label : undefined,
         rider: isCurbside
           ? undefined
           : { name: { en: 'Adnan', ar: 'عدنان' }, etaMinutes: DELIVERY_ETA_MINUTES },
@@ -263,38 +239,28 @@ export function CheckoutScreen({ navigation }: Props) {
 
         {isCurbside ? (
           <>
-            {/* ---------------- Curbside: store, car, arrival (screen 06c) */}
-            <Text style={styles.sectionTitleFirst}>{t('checkout.pickupStore')}</Text>
-            <View style={styles.storeCard}>
-              <Icon name="storefront" size={24} color={colors.primary} />
-              <View style={styles.storeBody}>
-                <Text style={styles.storeName}>{tr(store.name, language)}</Text>
-                <Text style={styles.storeDetails}>{tr(store.details, language)}</Text>
-                <View style={styles.baysPill}>
-                  <Icon name="parking" size={14} color={colors.primaryDark} />
-                  <Text style={styles.baysLabel}>
-                    {t('checkout.baysFree', { count: store.baysFree })}
-                  </Text>
-                </View>
-              </View>
-              <TextLink label={t('checkout.change')} />
-            </View>
-
-            <Text style={styles.sectionTitle}>{t('checkout.yourCar')}</Text>
+            {/* ---------------- Curbside: car, arrival (screen 06c) */}
+            <Text style={styles.sectionTitleFirst}>{t('checkout.yourCar')}</Text>
             <View style={styles.carRow}>
               <View style={styles.plateField}>
                 <Text style={styles.fieldLabel}>{t('checkout.plate')}</Text>
-                <Text style={styles.fieldValue} numberOfLines={1}>
-                  {car.plate}
-                </Text>
+                <TextInput
+                  style={styles.plateInput}
+                  value={car.plate}
+                  onChangeText={(plate) => setCar((c) => ({ ...c, plate }))}
+                  placeholder={DEFAULT_CAR.plate}
+                  placeholderTextColor={colors.disabledSoft}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  accessibilityLabel={t('checkout.plate')}
+                />
               </View>
-              {/* The design shows the colour as a single field, so tapping it
-                  steps through the palette rather than exposing a swatch row. */}
               <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel={`${t('checkout.colour')}: ${tr(car.colour, language)}`}
-                onPress={cycleColour}
+                onPress={() => setColourSheetOpen(true)}
                 activeScale={0.985}
+                containerStyle={styles.colourCell}
                 style={styles.colourField}
               >
                 <View style={[styles.colourDot, { backgroundColor: car.colourHex }]} />
@@ -308,24 +274,18 @@ export function CheckoutScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.chipRow}>
-              {(['sedan', 'suv', 'pickup'] as const).map((body) => {
-                const active = car.bodyType === body;
+              {BODY_TYPES.map(({ value, labelKey }) => {
+                const active = car.bodyType === value;
                 return (
                   <PressableScale
-                    key={body}
+                    key={value}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    onPress={() => setCar((c) => ({ ...c, bodyType: body }))}
+                    onPress={() => setCar((c) => ({ ...c, bodyType: value }))}
                     style={[styles.bodyChip, active && styles.bodyChipActive]}
                   >
                     <Text style={[styles.bodyChipLabel, active && styles.bodyChipLabelActive]}>
-                      {t(
-                        body === 'sedan'
-                          ? 'checkout.sedan'
-                          : body === 'suv'
-                            ? 'checkout.suv'
-                            : 'checkout.pickupTruck',
-                      )}
+                      {t(labelKey)}
                     </Text>
                   </PressableScale>
                 );
@@ -335,21 +295,18 @@ export function CheckoutScreen({ navigation }: Props) {
             <Text style={styles.sectionTitle}>{t('checkout.arrival')}</Text>
             <View style={styles.stack}>
               <SelectRow
-                selected={timing === 'asap'}
-                onPress={() => setTiming('asap')}
+                selected={arrival === 'on_way'}
+                onPress={() => setArrival('on_way')}
                 title={t('checkout.onMyWay')}
                 subtitle={t('checkout.onMyWayNote')}
                 trailing={<Text style={styles.freeLabel}>{t('checkout.free')}</Text>}
               />
               <SelectRow
-                selected={timing === 'slot'}
-                onPress={() => {
-                  setTiming('slot');
-                  setSlotSheetOpen(true);
-                }}
-                title={t('checkout.pickTime')}
-                subtitle={slotPreview}
-                trailing={<Icon name="expand" size={20} color={colors.placeholder} />}
+                selected={arrival === 'near'}
+                onPress={() => setArrival('near')}
+                title={t('checkout.nearShop')}
+                subtitle={t('checkout.nearShopNote')}
+                trailing={<Text style={styles.freeLabel}>{t('checkout.free')}</Text>}
               />
             </View>
 
@@ -413,29 +370,6 @@ export function CheckoutScreen({ navigation }: Props) {
                   </FadeSlideIn>
                 );
               })}
-            </View>
-
-            <Text style={styles.sectionTitle}>{t('checkout.deliveryTime')}</Text>
-            <View style={styles.stack}>
-              <SelectRow
-                selected={timing === 'asap'}
-                onPress={() => setTiming('asap')}
-                title={t('checkout.asap')}
-                subtitle={t('checkout.asapNote')}
-                trailing={
-                  <Text style={styles.feeLabel}>{formatMoney(totals.deliveryFee, language)}</Text>
-                }
-              />
-              <SelectRow
-                selected={timing === 'slot'}
-                onPress={() => {
-                  setTiming('slot');
-                  setSlotSheetOpen(true);
-                }}
-                title={t('checkout.scheduleSlot')}
-                subtitle={slotPreview}
-                trailing={<Icon name="expand" size={20} color={colors.placeholder} />}
-              />
             </View>
           </>
         )}
@@ -532,19 +466,16 @@ export function CheckoutScreen({ navigation }: Props) {
         onSave={saveAddress}
       />
 
-      <SlotPickerSheet
-        visible={slotSheetOpen}
-        selectedSlotId={slot?.id}
-        onClose={() => {
-          setSlotSheetOpen(false);
-          if (!slot) setTiming('asap');
-        }}
-        onConfirm={(picked) => {
-          setSlot(picked);
-          setTiming('slot');
-          setSlotSheetOpen(false);
+      <CarColourSheet
+        visible={colourSheetOpen}
+        selectedHex={car.colourHex}
+        onClose={() => setColourSheetOpen(false)}
+        onConfirm={(colour) => {
+          setCar((c) => ({ ...c, colourHex: colour.hex, colour: colour.name }));
+          setColourSheetOpen(false);
         }}
       />
+
     </Screen>
   );
 }
@@ -620,7 +551,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginBottom: 10,
   },
-  /** "Pick-up store" opens screen 06c directly under the tabs, with no lead-in. */
+  /** The first curbside section sits directly under the tabs, with no lead-in. */
   sectionTitleFirst: {
     fontSize: fontSize.body,
     fontWeight: weight.heavy,
@@ -640,44 +571,12 @@ const styles = StyleSheet.create({
   editLink: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
   editLinkMuted: { color: colors.placeholder },
   setPrimary: { fontSize: fontSize.caption, marginTop: 6 },
-  feeLabel: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
-  freeLabel: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
+  freeLabel:{ fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
 
-  storeCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryTintedBg,
-    borderRadius: radii['3xl'],
-    padding: 14,
-  },
-  storeBody: { flex: 1, minWidth: 0 },
-  storeName: { fontSize: fontSize.body, fontWeight: weight.heavy, color: colors.ink },
-  storeDetails: {
-    fontSize: fontSize.caption,
-    fontWeight: weight.semibold,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-  baysPill: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  baysLabel: { fontSize: fontSize.tiny, fontWeight: weight.heavy, color: colors.primaryDark },
-
-  carRow: { flexDirection: 'row', gap: 10 },
+  carRow:{ flexDirection: 'row', gap: 10 },
+  /** The plate takes the larger share — it holds free text, the colour a word. */
   plateField: {
-    flex: 1,
+    flex: 3,
     height: 58,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -685,8 +584,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     justifyContent: 'center',
   },
+  /**
+   * Was a fixed 132. Now proportional, so the plate keeps the room it needs on
+   * narrow decks. The flex lives on the touchable itself — `PressableScale`
+   * puts `style` on the inner scaling view, where flex never reaches the row.
+   */
+  colourCell: { flex: 2 },
   colourField: {
-    width: 132,
     height: 58,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -711,8 +615,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   fieldValue: { fontSize: fontSize.bodyLg, fontWeight: weight.heavy, color: colors.ink, marginTop: 2 },
+  /**
+   * Matches `fieldValue`, but zeroes the padding a `TextInput` carries by
+   * default so the plate sits on the same baseline as the colour beside it.
+   */
+  plateInput: {
+    fontSize: fontSize.bodyLg,
+    fontWeight: weight.heavy,
+    color: colors.ink,
+    marginTop: 2,
+    padding: 0,
+  },
 
-  chipRow: { flexDirection: 'row', gap: 9, marginTop: 10 },
+  // Wraps because a fourth chip pushes the row past the gutter on narrow decks
+  // and in Arabic, where the labels run longer.
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 10 },
   bodyChip: {
     height: 36,
     paddingHorizontal: 14,

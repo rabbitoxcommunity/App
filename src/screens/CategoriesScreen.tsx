@@ -1,6 +1,15 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  Dimensions,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { Screen, IconButton } from '../components/ui';
 import { productsInCategory, t as tr } from '../data/catalog';
@@ -17,10 +26,38 @@ export function CategoriesScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
 
+  /**
+   * Held in state rather than read straight from the module so pull-to-refresh
+   * has something to re-read. Today that source is `mock.ts`; when the
+   * catalogue moves behind `src/api`, only `onRefresh` changes.
+   */
+  const [categories, setCategories] = useState(CATEGORIES);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // The floor keeps the spinner on screen long enough to read; without it a
+      // synchronous re-read kills it inside a frame and the pull looks broken.
+      await new Promise((r) => setTimeout(r, 450));
+      setCategories([...CATEGORIES]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   return (
     <Screen>
       <FlatList
-        data={CATEGORIES}
+        data={categories}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         keyExtractor={(item) => item.id}
         numColumns={3}
         columnWrapperStyle={styles.column}

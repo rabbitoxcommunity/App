@@ -36,6 +36,11 @@ type OrdersContextValue = {
   pastOrders: Order[];
   credit: CreditAccount;
   getOrder: (id: string) => Order | undefined;
+  /**
+   * Re-reads the persisted store. Pull-to-refresh calls this; when orders move
+   * behind an API it is the one place that becomes a refetch.
+   */
+  refresh: () => Promise<void>;
   placeOrder: (input: PlaceOrderInput) => Order;
   /** Curbside: the customer tells the store they have parked. */
   markArrived: (orderId: string) => void;
@@ -66,22 +71,26 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const [credit, setCredit] = useState<CreditAccount>(CREDIT_ACCOUNT);
   const [hydrated, setHydrated] = useState(false);
 
+  const load = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(ORDERS_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as { orders: Order[]; credit: CreditAccount };
+        // Guarded: an empty or corrupt cache must not wipe what is on screen.
+        if (saved.orders?.length) setOrders(saved.orders);
+        if (saved.credit) setCredit(saved.credit);
+      }
+    } catch {
+      // A corrupt cache falls back to the seeded mock data.
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(ORDERS_KEY);
-        if (raw) {
-          const saved = JSON.parse(raw) as { orders: Order[]; credit: CreditAccount };
-          if (saved.orders?.length) setOrders(saved.orders);
-          if (saved.credit) setCredit(saved.credit);
-        }
-      } catch {
-        // A corrupt cache falls back to the seeded mock data.
-      } finally {
-        setHydrated(true);
-      }
+      await load();
+      setHydrated(true);
     })();
-  }, []);
+  }, [load]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -213,12 +222,24 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       pastOrders,
       credit,
       getOrder,
+      refresh: load,
       placeOrder,
       markArrived,
       advance,
       payCredit,
     }),
-    [orders, activeOrder, pastOrders, credit, getOrder, placeOrder, markArrived, advance, payCredit],
+    [
+      orders,
+      activeOrder,
+      pastOrders,
+      credit,
+      getOrder,
+      load,
+      placeOrder,
+      markArrived,
+      advance,
+      payCredit,
+    ],
   );
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;

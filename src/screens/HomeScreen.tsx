@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+ import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -7,7 +7,7 @@ import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { ProductCard } from '../components/ProductCard';
 import { useToast } from '../components/Toast';
-import { Screen, IconButton, SectionHeader } from '../components/ui';
+import { Screen, IconButton, SectionHeader, TextLink } from '../components/ui';
 import { popularProducts, t as tr } from '../data/catalog';
 import { CATEGORIES, DEFAULT_ADDRESS, LAST_BASKET } from '../data/mock';
 import type { Category } from '../data/types';
@@ -17,7 +17,8 @@ import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import type { RootNavigation } from '../navigation/types';
 import { useCart } from '../store/CartContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { useSearchHistory } from '../store/SearchHistoryContext';
+import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
 import { formatAmount, formatShortDate } from '../utils/format';
 
 const POPULAR = popularProducts(8);
@@ -34,6 +35,7 @@ export function HomeScreen() {
   const { addProduct } = useAddToCart();
   const { addItem } = useCart();
   const { show } = useToast();
+  const { history, recordSearch, clearHistory } = useSearchHistory();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>(defaultFilters());
@@ -55,6 +57,13 @@ export function HomeScreen() {
     }
     return applyFilters(result, filters);
   }, [searchQuery, language, filters]);
+
+  const runSearch = useCallback(() => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    recordSearch(query);
+    navigation.navigate('Search', { query });
+  }, [navigation, recordSearch, searchQuery]);
 
   const openCategory = useCallback(
     (category: Category) =>
@@ -104,9 +113,8 @@ export function HomeScreen() {
         </View>
 
         {/* Search */}
-        <View style={styles.searchRow}>
+        <View style={styles.searchContainer}>
           <View style={styles.searchField}>
-            <Icon name="search" size={21} color={colors.placeholder} />
             <TextInput
               style={styles.searchInput}
               placeholder={t('home.searchPlaceholder')}
@@ -115,21 +123,52 @@ export function HomeScreen() {
               onChangeText={setSearchQuery}
               returnKeyType="search"
               clearButtonMode="while-editing"
-              onSubmitEditing={() => {
-                if (searchQuery.trim()) {
-                  navigation.navigate('Search', { query: searchQuery });
-                }
-              }}
+              onSubmitEditing={runSearch}
             />
+            {/* Trailing affordance: the glyph doubles as the submit button, so
+                the query can be sent without reaching for the keyboard. */}
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={t('common.search')}
+              onPress={runSearch}
+              style={styles.searchButton}
+            >
+              <Icon name="search" size={22} color={colors.onPrimary} style={styles.searchButtonIcon} />
+            </PressableScale>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('listing.filters')}
-            style={styles.searchFilterButton}
-            onPress={() => setSheetOpen(true)}
-          >
-            <Icon name="tune" size={23} color={colors.onPrimary} />
-          </Pressable>
+          
+          {/* Nothing to show until the customer has actually searched, so the
+              rail collapses rather than reserving empty space. */}
+          {history.length > 0 && (
+            <View style={styles.searchHistoryRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                // Shrinks rather than grows, so Clear stays put beside the
+                // pills instead of being pushed off the trailing edge once the
+                // rail overflows.
+                style={styles.searchHistoryScroll}
+                contentContainerStyle={styles.searchHistoryRail}
+              >
+                {history.map((query) => (
+                  <Pressable
+                    key={query}
+                    accessibilityRole="button"
+                    onPress={() => setSearchQuery(query)}
+                    style={styles.historyPill}
+                  >
+                    <Icon name="schedule" size={18} color={colors.inkMuted} />
+                    <Text style={styles.historyPillText}>{query}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              <TextLink
+                label={t('common.clear')}
+                onPress={clearHistory}
+                style={styles.clearHistory}
+              />
+            </View>
+          )}
         </View>
 
         {/* Categories */}
@@ -256,30 +295,84 @@ const styles = StyleSheet.create({
     fontWeight: weight.heavy,
     color: colors.ink,
   },
-  searchRow: { flexDirection: 'row', gap: 10, marginBottom: spacing.xl },
+  searchContainer: {
+    marginBottom: spacing.xl,
+    gap: spacing.md,
+  },
   searchField: {
-    flex: 1,
-    height: 52,
+    height: 56,
     borderRadius: radii.xl,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    // Asymmetric: the text keeps the full gutter, while the trailing button sits
+    // on a 6px inset so it reads as inlaid in the field rather than floating.
+    paddingStart: spacing.lg,
+    paddingEnd: 6,
+    ...shadow.card,
   },
   searchInput: {
     flex: 1,
-    fontSize: fontSize.bodyLg,
+    fontSize: fontSize.base,
     fontWeight: weight.semibold,
     color: colors.ink,
   },
-  searchFilterButton: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.xl,
+  searchButton: {
+    // 42 matches `IconButton` and leaves an even 6px inset on the top, bottom
+    // and trailing edge (56 field − 2 borders − 42 = 12, split evenly), so the
+    // tile sits dead centre in the field's vertical run.
+    width: 42,
+    height: 42,
+    borderRadius: radii.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadow.primaryCta,
+    // The field already carries `shadow.card`; a full-strength CTA glow on top
+    // of it muddies the edge, so the brand glow is dialled back here.
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  searchButtonIcon: {
+    // The flex box above centres the glyph's *Text box*; these centre the glyph
+    // within that box. Android otherwise hangs an icon font off the baseline
+    // with extra font padding, which reads as a few pixels low.
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+  },
+  searchHistoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  searchHistoryScroll: { flexShrink: 1 },
+  searchHistoryRail: {
+    gap: spacing.sm,
+  },
+  clearHistory: {
+    // Muted rather than the link green: clearing is a secondary, mildly
+    // destructive action and should not compete with the pills for attention.
+    color: colors.inkMuted,
+  },
+  historyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSubtle,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radii.md,
+    gap: 6,
+  },
+  historyPillText: {
+    fontSize: fontSize.body,
+    fontWeight: weight.bold,
+    color: colors.inkMuted,
   },
   categoryGrid: {
     flexDirection: 'row',

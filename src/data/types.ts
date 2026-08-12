@@ -130,7 +130,7 @@ export type CarProfile = {
   plate: string;
   colour: Localized;
   colourHex: string;
-  bodyType: 'sedan' | 'suv' | 'pickup';
+  bodyType: 'sedan' | 'suv' | 'pickup' | 'coupe';
 };
 
 /* -------------------------------------------------------------- Order data */

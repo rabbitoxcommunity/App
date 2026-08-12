@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
@@ -13,6 +13,7 @@ import { useCart } from '../store/CartContext';
 import { useOrders } from '../store/OrdersContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatShortDate } from '../utils/format';
+import { ReceiptSheet } from './ReceiptSheet';
 
 /** How many item thumbnails a history card shows before collapsing to "+N". */
 const THUMBS = 3;
@@ -22,11 +23,36 @@ export function OrdersScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { show } = useToast();
-  const { activeOrder, pastOrders } = useOrders();
+  const { activeOrder, pastOrders, refresh } = useOrders();
   const { addItem } = useCart();
 
   const [tab, setTab] = useState<'past' | 'active'>('past');
+  /** The order whose receipt is open, or `null` when the sheet is closed. */
+  const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
   const orders = tab === 'active' ? (activeOrder ? [activeOrder] : []) : pastOrders;
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Reading the cache takes a few milliseconds, which would fire the spinner
+      // and kill it inside one frame — the pull would read as having failed. The
+      // floor holds it just long enough for the gesture to land.
+      await Promise.all([refresh(), new Promise((r) => setTimeout(r, 450))]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh]);
+
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor={colors.primary}
+      colors={[colors.primary]}
+    />
+  );
 
   const reorder = (order: Order) => {
     order.lines.forEach((line) => addItem(line.productId, line.variantId, line.quantity));
@@ -81,15 +107,27 @@ export function OrdersScreen() {
       </View>
 
       {orders.length === 0 ? (
-        <EmptyState
-          icon="orders"
-          title={t('orders.empty')}
-          body={t('orders.emptyBody')}
-          actionLabel={t('cart.startShopping')}
-          onAction={() => navigation.navigate('Tabs', { screen: 'Home' })}
-        />
+        // Scrollable even with nothing in it, so the pull gesture still works —
+        // an empty list is exactly when someone reaches for refresh.
+        <ScrollView
+          contentContainerStyle={styles.emptyContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+        >
+          <EmptyState
+            icon="orders"
+            title={t('orders.empty')}
+            body={t('orders.emptyBody')}
+            actionLabel={t('cart.startShopping')}
+            onAction={() => navigation.navigate('Tabs', { screen: 'Home' })}
+          />
+        </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+        >
           {orders.map((order, index) => {
             const cancelled = order.status === 'cancelled';
             const live = order === activeOrder;
@@ -189,13 +227,8 @@ export function OrdersScreen() {
                         </View>
                         <PressableScale
                           accessibilityRole="button"
-                          onPress={() =>
-                            show({
-                              title: t('orders.receipt'),
-                              body: `#${order.reference}`,
-                              icon: 'receipt',
-                            })
-                          }
+                          accessibilityLabel={`${t('orders.receipt')} #${order.reference}`}
+                          onPress={() => setReceiptOrder(order)}
                           style={styles.secondaryAction}
                         >
                           <Text style={styles.secondaryActionLabel}>{t('orders.receipt')}</Text>
@@ -209,6 +242,8 @@ export function OrdersScreen() {
           })}
         </ScrollView>
       )}
+
+      <ReceiptSheet order={receiptOrder} onClose={() => setReceiptOrder(null)} />
     </Screen>
   );
 }
@@ -249,6 +284,8 @@ const styles = StyleSheet.create({
   tabLabelActive: { color: colors.onPrimary, fontWeight: weight.heavy },
 
   list: { paddingHorizontal: spacing.gutter, paddingBottom: spacing['2xl'], gap: spacing.md },
+  /** `flexGrow` so the empty state still centres in the viewport it scrolls in. */
+  emptyContent: { flexGrow: 1, justifyContent: 'center' },
   card: {
     borderWidth: 1.5,
     borderColor: colors.borderLight,

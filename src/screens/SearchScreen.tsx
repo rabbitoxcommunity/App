@@ -15,6 +15,7 @@ import { PRODUCTS } from '../data/mock';
 import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { useSearchHistory } from '../store/SearchHistoryContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { FilterSheet } from './FilterSheet';
 
@@ -26,6 +27,7 @@ export function SearchScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { addProduct } = useAddToCart();
   const { show } = useToast();
+  const { recordSearch } = useSearchHistory();
 
   const [searchQuery, setSearchQuery] = useState(query);
   const [filters, setFilters] = useState<FilterState>(defaultFilters());
@@ -57,6 +59,7 @@ export function SearchScreen({ route, navigation }: Props) {
             returnKeyType="search"
             clearButtonMode="while-editing"
             autoFocus={!query}
+            onSubmitEditing={() => recordSearch(searchQuery)}
           />
         </View>
         <Pressable

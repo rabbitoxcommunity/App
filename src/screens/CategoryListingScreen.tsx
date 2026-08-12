@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CartPeekBar } from '../components/CartPeekBar';
@@ -37,8 +37,26 @@ export function CategoryListingScreen({ route, navigation }: Props) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const [refreshing, setRefreshing] = useState(false);
+  /** Bumped by pull-to-refresh to re-run the catalogue selectors below. */
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // The floor keeps the spinner on screen long enough to read; without it a
+      // synchronous re-read kills it inside a frame and the pull looks broken.
+      await new Promise((r) => setTimeout(r, 450));
+      setReloadToken((n) => n + 1);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   const category = getCategory(categoryId);
-  const allProducts = useMemo(() => productsInCategory(categoryId), [categoryId]);
+  // `reloadToken` is a dependency on purpose: it is what makes the pull re-read
+  // the catalogue rather than serve the memoised list back.
+  const allProducts = useMemo(() => productsInCategory(categoryId), [categoryId, reloadToken]);
   const products = useMemo(() => applyFilters(allProducts, filters), [allProducts, filters]);
   const filterCount = activeFilterCount(filters);
 
@@ -133,6 +151,14 @@ export function CategoryListingScreen({ route, navigation }: Props) {
           { paddingBottom: PEEK_BAR_SPACE + insets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         renderItem={({ item, index }) => (
           <FadeSlideIn index={index}>
           <ProductRow

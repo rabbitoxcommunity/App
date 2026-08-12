@@ -15,6 +15,7 @@ import { AddressesProvider } from './src/store/AddressesContext';
 import { AuthProvider, useAuth } from './src/store/AuthContext';
 import { CartProvider } from './src/store/CartContext';
 import { OrdersProvider } from './src/store/OrdersContext';
+import { SearchHistoryProvider } from './src/store/SearchHistoryContext';
 import { applyDirection, directionNeedsRestart, reloadApp } from './src/utils/rtl';
 
 /**
@@ -118,9 +119,11 @@ export default function App() {
           <CartProvider>
             <AddressesProvider>
               <OrdersProvider>
-                <ToastProvider>
-                  <Gate />
-                </ToastProvider>
+                <SearchHistoryProvider>
+                  <ToastProvider>
+                    <Gate />
+                  </ToastProvider>
+                </SearchHistoryProvider>
               </OrdersProvider>
             </AddressesProvider>
           </CartProvider>

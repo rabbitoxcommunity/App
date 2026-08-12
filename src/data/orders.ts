@@ -78,12 +78,24 @@ export const DEFAULT_CAR: CarProfile = {
   bodyType: 'sedan',
 };
 
+/**
+ * Ordered by how common the colour is on the road, so the usual answer is the
+ * first thing in the picker. The staff member matching a car in a bay needs the
+ * colour the customer would actually say out loud, not a paint code — so this
+ * stays a short named list rather than a full colour wheel.
+ */
 export const CAR_COLOURS: { hex: string; name: { en: string; ar: string } }[] = [
-  { hex: '#14181C', name: { en: 'Black', ar: 'أسود' } },
   { hex: '#FFFFFF', name: { en: 'White', ar: 'أبيض' } },
+  { hex: '#14181C', name: { en: 'Black', ar: 'أسود' } },
   { hex: '#9AA1A6', name: { en: 'Silver', ar: 'فضي' } },
+  { hex: '#5A6169', name: { en: 'Grey', ar: 'رمادي' } },
   { hex: '#C0392B', name: { en: 'Red', ar: 'أحمر' } },
   { hex: '#2C5AA0', name: { en: 'Blue', ar: 'أزرق' } },
+  { hex: '#F2C10D', name: { en: 'Yellow', ar: 'أصفر' } },
+  { hex: '#E2711D', name: { en: 'Orange', ar: 'برتقالي' } },
+  { hex: '#1E7A3C', name: { en: 'Green', ar: 'أخضر' } },
+  { hex: '#6B4A2F', name: { en: 'Brown', ar: 'بني' } },
+  { hex: '#C9A227', name: { en: 'Gold', ar: 'ذهبي' } },
 ];
 
 /** Four bookable days starting today, matching the design's date strip. */
@@ -175,10 +187,11 @@ export const PAST_ORDERS: Order[] = [
         icon: 'p-bread',
       },
     ],
-    subtotal: 143.5,
+    // 2×11 + 6.50 + 17.25 + 8×4.25 = 79.75, + 5 delivery.
+    subtotal: 79.75,
     deliveryFee: 5,
     discount: 0,
-    total: 148.5,
+    total: 84.75,
     paymentKind: 'credit',
     confirmationCode: '7318',
     addressId: 'addr-home',
@@ -219,10 +232,11 @@ export const PAST_ORDERS: Order[] = [
         icon: 'p-juice',
       },
     ],
-    subtotal: 58,
+    // 2×13.25 + 3×9.75 + 2×12 = 79.75; curbside carries no delivery fee.
+    subtotal: 79.75,
     deliveryFee: 0,
     discount: 0,
-    total: 58,
+    total: 79.75,
     paymentKind: 'credit',
     confirmationCode: '2094',
     storeId: 'store-jumeirah',
@@ -355,7 +369,8 @@ export const ACTIVE_ORDER: Order = {
  */
 export const CREDIT_ACCOUNT: CreditAccount = {
   limit: 1000,
-  balance: 245.5,
+  /** The three purchase entries below: 39 + 84.75 + 79.75. */
+  balance: 203.5,
   dueDate: '2026-08-31',
   entries: [
     {
@@ -381,7 +396,7 @@ export const CREDIT_ACCOUNT: CreditAccount = {
       kind: 'purchase',
       title: { en: 'Order #FC-2790', ar: 'الطلب FC-2790' },
       subtitle: { en: '6 Aug · 12 items', ar: '6 أغسطس · 12 منتجًا' },
-      amount: 148.5,
+      amount: 84.75,
       settled: false,
       at: '2026-08-06T17:40:00.000Z',
     },
@@ -390,7 +405,7 @@ export const CREDIT_ACCOUNT: CreditAccount = {
       kind: 'purchase',
       title: { en: 'Order #FC-2744', ar: 'الطلب FC-2744' },
       subtitle: { en: '2 Aug · 7 items', ar: '2 أغسطس · 7 منتجات' },
-      amount: 58,
+      amount: 79.75,
       settled: true,
       at: '2026-08-02T15:05:00.000Z',
     },
