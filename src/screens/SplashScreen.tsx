@@ -7,6 +7,10 @@ import { colors, fontSize, radii, weight } from '../theme';
 /**
  * Shown while i18n initialises and the persisted session is read. Purely
  * presentational — the app swaps it out as soon as that work resolves.
+ *
+ * This is the app's only splash: the native one (app.json) is the same green
+ * field with the same logo tile, and `App` holds it up until the icon font is
+ * registered, so the two read as a single continuous screen.
  */
 export function SplashScreen({ message }: { message?: string }) {
   const progress = useRef(new Animated.Value(0)).current;

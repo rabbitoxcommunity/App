@@ -184,6 +184,7 @@
     "asap": "ASAP — within 30 min",
     "asapNote": "Rider assigned after packing",
     "scheduleSlot": "Schedule a slot",
+    "slotToday": "Today, {{slot}}",
     "paymentMethod": "Payment method",
     "creditApproved": "APPROVED",
     "creditAvailable": "AED {{available}} of AED {{limit}} available",
@@ -210,6 +211,25 @@
     "curbsideArriveHint": "Tap \"I have arrived\" in the app when you park — we will come out to bay {{bay}}.",
     "placed": "Order placed",
     "placedBody": "Order {{reference}} is on its way"
+  },
+  "address": {
+    "addTitle": "Add a new address",
+    "editTitle": "Edit address",
+    "subtitle": "We deliver across Dubai · 7 AM – 11 PM",
+    "labelField": "LABEL",
+    "labelPlaceholder": "Home · Villa 24",
+    "linesField": "ADDRESS",
+    "linesPlaceholder": "Street, area, city",
+    "phoneField": "PHONE",
+    "phonePlaceholder": "+971 50 000 0000",
+    "optional": "optional",
+    "makePrimary": "Make this my primary address",
+    "primaryNote": "Checkout will select it by default",
+    "primaryLocked": "Set another address as primary to change this",
+    "add": "Add address",
+    "save": "Save changes",
+    "added": "Address added",
+    "updated": "Address updated"
   },
   "slots": {
     "title": "Choose a delivery slot",

@@ -11,13 +11,15 @@ import { AppHeader, Screen, TextLink } from '../components/ui';
 import { t as tr, variantLabel } from '../data/catalog';
 import { DELIVERY_ETA_MINUTES } from '../data/mock';
 import {
-  ADDRESSES,
   CAR_COLOURS,
   DEFAULT_CAR,
   PAYMENT_METHODS,
   PICKUP_STORES,
+  slotDays,
+  slotsForDate,
 } from '../data/orders';
 import type {
+  Address,
   CarProfile,
   DeliverySlot,
   FulfillmentType,
@@ -25,11 +27,13 @@ import type {
 } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { type AddressDraft, useAddresses } from '../store/AddressesContext';
 import { useAuth } from '../store/AuthContext';
 import { useCart } from '../store/CartContext';
 import { availableCredit, useOrders } from '../store/OrdersContext';
-import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
+import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
+import { AddressSheet } from './AddressSheet';
 import { SlotPickerSheet } from './SlotPickerSheet';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
@@ -44,15 +48,69 @@ export function CheckoutScreen({ navigation }: Props) {
   const { lines, totals, promoCode, fulfillment, setFulfillment, clear } = useCart();
   const { placeOrder, credit } = useOrders();
 
-  const [addressId, setAddressId] = useState(
-    ADDRESSES.find((a) => a.isPrimary)?.id ?? ADDRESSES[0].id,
-  );
+  const { addresses, addAddress, updateAddress, setPrimary } = useAddresses();
+
+  /**
+   * Undefined until the customer picks one, so the selection tracks the primary
+   * address — including after the store hydrates a saved book from disk.
+   */
+  const [pickedAddressId, setAddressId] = useState<string>();
+  const addressId =
+    addresses.find((a) => a.id === pickedAddressId)?.id ??
+    addresses.find((a) => a.isPrimary)?.id ??
+    addresses[0]?.id;
+  /** `null` while adding; the address itself while editing. */
+  const [editing, setEditing] = useState<Address | null>(null);
+  const [addressSheetOpen, setAddressSheetOpen] = useState(false);
   const [timing, setTiming] = useState<'asap' | 'slot'>('asap');
   const [slot, setSlot] = useState<DeliverySlot | null>(null);
   const [slotSheetOpen, setSlotSheetOpen] = useState(false);
   const [car, setCar] = useState<CarProfile>(DEFAULT_CAR);
   const [paymentId, setPaymentId] = useState('pay-card');
   const [placing, setPlacing] = useState(false);
+
+  /**
+   * Screens 06 and 06c both preview a slot under the "Schedule a slot" /
+   * "Pick a time" row before one has been chosen — today's recommended window.
+   */
+  const slotPreview = useMemo(() => {
+    const today = slotDays()[0];
+    const shown = slot ?? slotsForDate(today).find((s) => s.recommended);
+    if (!shown) return t('slots.subtitle');
+    const label = tr(shown.label, language);
+    return shown.date === today ? t('checkout.slotToday', { slot: label }) : label;
+  }, [slot, language, t]);
+
+  const openAddAddress = () => {
+    setEditing(null);
+    setAddressSheetOpen(true);
+  };
+
+  const openEditAddress = (address: Address) => {
+    setEditing(address);
+    setAddressSheetOpen(true);
+  };
+
+  const saveAddress = (draft: AddressDraft) => {
+    if (editing) {
+      updateAddress(editing.id, draft);
+      show({ title: t('address.updated'), tone: 'success', icon: 'check-circle' });
+    } else {
+      // A freshly added address is what the customer wants to ship to.
+      const created = addAddress(draft);
+      setAddressId(created.id);
+      show({ title: t('address.added'), tone: 'success', icon: 'check-circle' });
+    }
+    setAddressSheetOpen(false);
+  };
+
+  const cycleColour = () => {
+    setCar((c) => {
+      const at = CAR_COLOURS.findIndex((o) => o.hex === c.colourHex);
+      const next = CAR_COLOURS[(at + 1) % CAR_COLOURS.length];
+      return { ...c, colourHex: next.hex, colour: next.name };
+    });
+  };
 
   const store = PICKUP_STORES[0];
   const isCurbside = fulfillment === 'pickup';
@@ -134,14 +192,34 @@ export function CheckoutScreen({ navigation }: Props) {
         accessibilityState={{ selected: active }}
         onPress={() => setFulfillment(type)}
         activeScale={0.97}
+        containerStyle={styles.modeCell}
         style={[styles.modeCard, active && styles.modeCardActive]}
       >
-        <Icon name={icon} size={24} color={active ? colors.primary : colors.inkMuted} />
+        {/* Both glyphs default to FILL 1 elsewhere in the app; here the design
+            uses the axis to carry selection — solid when active, outlined when not. */}
+        <Icon
+          name={icon}
+          size={24}
+          filled={active}
+          color={active ? colors.primary : colors.inkMuted}
+        />
+        {/* Both labels are drawn in full in the design. On decks narrower than
+            the 390pt canvas they scale down a touch rather than ellipsize. */}
         <View style={styles.modeText}>
-          <Text style={styles.modeTitle} numberOfLines={1}>
+          <Text
+            style={styles.modeTitle}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
             {t(type === 'pickup' ? 'checkout.curbside' : 'checkout.homeDelivery')}
           </Text>
-          <Text style={styles.modeSubtitle} numberOfLines={1}>
+          <Text
+            style={styles.modeSubtitle}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
             {t(type === 'pickup' ? 'checkout.curbsideSub' : 'checkout.homeDeliverySub')}
           </Text>
         </View>
@@ -172,9 +250,11 @@ export function CheckoutScreen({ navigation }: Props) {
           {fulfillmentTab('pickup', 'car')}
         </View>
 
-        {isCurbside && (
+        {/* Screen 06 explains curbside next to the tab that switches to it; on
+            06c itself the tip is replaced by the arrival note at the bottom. */}
+        {!isCurbside && (
           <FadeSlideIn>
-            <View style={styles.hintCard}>
+            <View style={[styles.hintCard, styles.hintCardTop]}>
               <Icon name="info" size={20} color={colors.textSecondary} />
               <Text style={styles.hintText}>{t('checkout.curbsideHint')}</Text>
             </View>
@@ -184,7 +264,7 @@ export function CheckoutScreen({ navigation }: Props) {
         {isCurbside ? (
           <>
             {/* ---------------- Curbside: store, car, arrival (screen 06c) */}
-            <Text style={styles.sectionTitle}>{t('checkout.pickupStore')}</Text>
+            <Text style={styles.sectionTitleFirst}>{t('checkout.pickupStore')}</Text>
             <View style={styles.storeCard}>
               <Icon name="storefront" size={24} color={colors.primary} />
               <View style={styles.storeBody}>
@@ -208,7 +288,15 @@ export function CheckoutScreen({ navigation }: Props) {
                   {car.plate}
                 </Text>
               </View>
-              <View style={styles.colourField}>
+              {/* The design shows the colour as a single field, so tapping it
+                  steps through the palette rather than exposing a swatch row. */}
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={`${t('checkout.colour')}: ${tr(car.colour, language)}`}
+                onPress={cycleColour}
+                activeScale={0.985}
+                style={styles.colourField}
+              >
                 <View style={[styles.colourDot, { backgroundColor: car.colourHex }]} />
                 <View style={styles.colourText}>
                   <Text style={styles.fieldLabel}>{t('checkout.colour')}</Text>
@@ -216,26 +304,7 @@ export function CheckoutScreen({ navigation }: Props) {
                     {tr(car.colour, language)}
                   </Text>
                 </View>
-              </View>
-            </View>
-
-            <View style={styles.chipRow}>
-              {CAR_COLOURS.map((option) => (
-                <PressableScale
-                  key={option.hex}
-                  accessibilityRole="button"
-                  accessibilityLabel={tr(option.name, language)}
-                  accessibilityState={{ selected: car.colourHex === option.hex }}
-                  onPress={() => setCar((c) => ({ ...c, colourHex: option.hex, colour: option.name }))}
-                  style={[
-                    styles.colourSwatch,
-                    { backgroundColor: option.hex },
-                    car.colourHex === option.hex && styles.colourSwatchActive,
-                  ]}
-                >
-                  <View />
-                </PressableScale>
-              ))}
+              </PressableScale>
             </View>
 
             <View style={styles.chipRow}>
@@ -279,12 +348,12 @@ export function CheckoutScreen({ navigation }: Props) {
                   setSlotSheetOpen(true);
                 }}
                 title={t('checkout.pickTime')}
-                subtitle={slot ? tr(slot.label, language) : t('slots.subtitle')}
+                subtitle={slotPreview}
                 trailing={<Icon name="expand" size={20} color={colors.placeholder} />}
               />
             </View>
 
-            <View style={styles.hintCard}>
+            <View style={[styles.hintCard, styles.hintCardArrival]}>
               <Icon name="bell-active" size={20} color={colors.textSecondary} />
               <Text style={styles.hintText}>
                 {t('checkout.curbsideArriveHint', { bay: CURBSIDE_BAY })}
@@ -296,18 +365,24 @@ export function CheckoutScreen({ navigation }: Props) {
             {/* ---------------- Home delivery: address + time (screen 06) */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitleInline}>{t('checkout.deliveryAddress')}</Text>
-              <PressableScale accessibilityRole="button" style={styles.addNew}>
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={t('address.addTitle')}
+                onPress={openAddAddress}
+                style={styles.addNew}
+              >
                 <Icon name="add" size={17} color={colors.primary} />
                 <Text style={styles.addNewLabel}>{t('checkout.addNew')}</Text>
               </PressableScale>
             </View>
             <View style={styles.stack}>
-              {ADDRESSES.map((address, index) => {
+              {addresses.map((address, index) => {
                 const selected = address.id === addressId;
                 return (
                   <FadeSlideIn key={address.id} index={index}>
                     <SelectRow
                       alignTop
+                      radius={radii['3xl']}
                       selected={selected}
                       onPress={() => setAddressId(address.id)}
                       title={tr(address.label, language)}
@@ -315,10 +390,24 @@ export function CheckoutScreen({ navigation }: Props) {
                       subtitle={[tr(address.lines, language), address.phone]
                         .filter(Boolean)
                         .join('\n')}
+                      footer={
+                        address.isPrimary ? null : (
+                          <TextLink
+                            label={t('checkout.setPrimary')}
+                            style={styles.setPrimary}
+                            onPress={() => {
+                              setPrimary(address.id);
+                              setAddressId(address.id);
+                            }}
+                          />
+                        )
+                      }
                       trailing={
-                        <Text style={[styles.editLink, !selected && styles.editLinkMuted]}>
-                          {t('checkout.edit')}
-                        </Text>
+                        <TextLink
+                          label={t('checkout.edit')}
+                          style={[styles.editLink, !selected && styles.editLinkMuted]}
+                          onPress={() => openEditAddress(address)}
+                        />
                       }
                     />
                   </FadeSlideIn>
@@ -344,7 +433,7 @@ export function CheckoutScreen({ navigation }: Props) {
                   setSlotSheetOpen(true);
                 }}
                 title={t('checkout.scheduleSlot')}
-                subtitle={slot ? tr(slot.label, language) : t('slots.subtitle')}
+                subtitle={slotPreview}
                 trailing={<Icon name="expand" size={20} color={colors.placeholder} />}
               />
             </View>
@@ -433,6 +522,16 @@ export function CheckoutScreen({ navigation }: Props) {
         </PressableScale>
       </View>
 
+      <AddressSheet
+        visible={addressSheetOpen}
+        address={editing}
+        // Clearing the flag here would leave the book with no primary at all —
+        // promoting a different address is what moves it.
+        canUnsetPrimary={!editing?.isPrimary}
+        onClose={() => setAddressSheetOpen(false)}
+        onSave={saveAddress}
+      />
+
       <SlotPickerSheet
         visible={slotSheetOpen}
         selectedSlotId={slot?.id}
@@ -473,8 +572,9 @@ const styles = StyleSheet.create({
   stack: { gap: 10 },
 
   modeRow: { flexDirection: 'row', gap: 10, marginBottom: spacing.lg + 2 },
+  /** Each tab takes half the row; the card inside stretches to fill its cell. */
+  modeCell: { flex: 1 },
   modeCard: {
-    flex: 1,
     height: 70,
     borderRadius: radii['2xl'],
     borderWidth: 1.5,
@@ -502,8 +602,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     paddingVertical: 11,
     paddingHorizontal: 14,
-    marginBottom: spacing.lg + 2,
   },
+  hintCardTop: { marginBottom: spacing.lg + 2 },
+  hintCardArrival: { marginTop: spacing.lg },
   hintText: {
     flex: 1,
     fontSize: fontSize.tiny,
@@ -519,6 +620,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginBottom: 10,
   },
+  /** "Pick-up store" opens screen 06c directly under the tabs, with no lead-in. */
+  sectionTitleFirst: {
+    fontSize: fontSize.body,
+    fontWeight: weight.heavy,
+    color: colors.ink,
+    marginBottom: 10,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -531,6 +639,7 @@ const styles = StyleSheet.create({
 
   editLink: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
   editLinkMuted: { color: colors.placeholder },
+  setPrimary: { fontSize: fontSize.caption, marginTop: 6 },
   feeLabel: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
   freeLabel: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
 
@@ -604,14 +713,6 @@ const styles = StyleSheet.create({
   fieldValue: { fontSize: fontSize.bodyLg, fontWeight: weight.heavy, color: colors.ink, marginTop: 2 },
 
   chipRow: { flexDirection: 'row', gap: 9, marginTop: 10 },
-  colourSwatch: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  colourSwatchActive: { borderWidth: 3, borderColor: colors.primary },
   bodyChip: {
     height: 36,
     paddingHorizontal: 14,

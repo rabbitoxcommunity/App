@@ -157,7 +157,7 @@ export function HomeScreen() {
 
         {/* Supermarket Ads Slider */}
         <View style={styles.adSection}>
-          <View 
+          <View
             style={styles.adContainer}
             onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
           >
@@ -205,11 +205,11 @@ export function HomeScreen() {
         >
           {popularFiltered.map((product, index) => (
             <FadeSlideIn key={product.id} index={index}>
-            <ProductCard
-              product={product}
-              onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
-              onAdd={() => addProduct(product)}
-            />
+              <ProductCard
+                product={product}
+                onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+                onAdd={() => addProduct(product)}
+              />
             </FadeSlideIn>
           ))}
         </ScrollView>

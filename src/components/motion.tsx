@@ -29,12 +29,20 @@ export function PressableScale({
   children,
   activeScale = 0.96,
   style,
+  containerStyle,
   disabled,
   ...rest
 }: PressableProps & {
   children: React.ReactNode;
   activeScale?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Layout applied to the touchable itself rather than the scaling surface.
+   * `style` lands on the inner `Animated.View` so the whole card dips under the
+   * finger — which means flex properties there never reach the parent row. Pass
+   * `flex` / `alignSelf` and friends here instead.
+   */
+  containerStyle?: StyleProp<ViewStyle>;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -51,6 +59,7 @@ export function PressableScale({
       disabled={disabled}
       onPressIn={() => !disabled && to(activeScale)}
       onPressOut={() => to(1)}
+      style={containerStyle}
       {...rest}
     >
       <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>

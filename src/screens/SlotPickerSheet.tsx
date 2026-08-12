@@ -73,6 +73,10 @@ export function SlotPickerSheet({
     return t('slots.slotsLeft', { count: slot.slotsLeft });
   };
 
+  /** "Recommended" and "Off-peak · free delivery" are drawn brand-green. */
+  const noteTone = (slot: DeliverySlot) =>
+    slot.slotsLeft > 0 && (slot.recommended || slot.fee === 0) ? 'brand' : 'muted';
+
   return (
     <BottomSheet
       visible={visible}
@@ -101,6 +105,7 @@ export function SlotPickerSheet({
             disabled={!draft}
             onPress={() => draft && onConfirm(draft)}
             height={56}
+            labelSize={fontSize.base}
             style={styles.confirmButton}
           />
         </View>
@@ -128,9 +133,9 @@ export function SlotPickerSheet({
                 onPress={() => setActiveDay(iso)}
                 style={[styles.dayCard, active && styles.dayCardActive]}
               >
-                <Text style={[styles.dayWeekday, active && styles.dayTextActive]}>{weekday}</Text>
-                <Text style={[styles.dayNumber, active && styles.dayTextActive]}>{day}</Text>
-                <Text style={[styles.dayMonth, active && styles.dayTextActive]}>{month}</Text>
+                <Text style={[styles.dayWeekday, active && styles.dayMetaActive]}>{weekday}</Text>
+                <Text style={[styles.dayNumber, active && styles.dayNumberActive]}>{day}</Text>
+                <Text style={[styles.dayMonth, active && styles.dayMetaActive]}>{month}</Text>
               </PressableScale>
             );
           })}
@@ -146,7 +151,9 @@ export function SlotPickerSheet({
                   disabled={soldOut}
                   onPress={() => setDraftId(slot.id)}
                   title={tr(slot.label, language)}
+                  titleSize={fontSize.bodyLg}
                   subtitle={slotNote(slot)}
+                  subtitleTone={noteTone(slot)}
                   trailing={
                     soldOut ? null : (
                       <Text
@@ -197,7 +204,10 @@ const styles = StyleSheet.create({
   dayWeekday: { fontSize: fontSize.tiny, fontWeight: weight.bold, color: colors.placeholder },
   dayNumber: { fontSize: 19, fontWeight: weight.heavy, color: colors.ink },
   dayMonth: { fontSize: fontSize.micro, fontWeight: weight.bold, color: colors.placeholder },
-  dayTextActive: { color: colors.onPrimary, opacity: 0.95 },
+  // The date reads at full strength on the selected card; the weekday and month
+  // around it are held back a notch.
+  dayNumberActive: { color: colors.onPrimary },
+  dayMetaActive: { color: colors.onPrimary, opacity: 0.9 },
   slots: { gap: 10, marginTop: spacing.lg + 2 },
   fee: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.inkMuted },
   feeFree: { color: colors.primary },

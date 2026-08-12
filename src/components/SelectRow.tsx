@@ -20,6 +20,10 @@ export function SelectRow({
   badge,
   accessibilityLabel,
   alignTop,
+  radius = radii['2xl'],
+  titleSize = fontSize.body,
+  subtitleTone = 'muted',
+  footer,
 }: {
   selected: boolean;
   disabled?: boolean;
@@ -33,7 +37,18 @@ export function SelectRow({
   badge?: string;
   accessibilityLabel?: string;
   alignTop?: boolean;
+  /** Address cards are drawn at 20; time / payment / slot rows at 18. */
+  radius?: number;
+  /** Slot rows in screen 06b set their title one step larger than 14. */
+  titleSize?: number;
+  /** The design tints "Recommended" / "Off-peak" notes brand-green. */
+  subtitleTone?: 'muted' | 'brand';
+  /** Extra line under the subtitle, e.g. the "Set as primary" link. */
+  footer?: React.ReactNode;
 }) {
+  // The design leaves 3px under titles that carry a badge or sit in a top-aligned
+  // address card, and 2px in the single-line time / payment / slot rows.
+  const subtitleGap = alignTop || badge ? 3 : 2;
   return (
     <PressableScale
       accessibilityRole="radio"
@@ -44,16 +59,27 @@ export function SelectRow({
       activeScale={0.985}
       style={[
         styles.row,
+        { borderRadius: radius },
         alignTop && styles.rowTop,
         selected && styles.rowSelected,
         disabled && styles.rowDisabled,
       ]}
     >
-      <View style={[styles.radio, selected && styles.radioSelected, disabled && styles.radioDisabled]} />
+      <View
+        style={[
+          styles.radio,
+          alignTop && styles.radioTop,
+          selected && styles.radioSelected,
+          disabled && styles.radioDisabled,
+        ]}
+      />
       {leading}
       <View style={styles.body}>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, disabled && styles.textDisabled]} numberOfLines={1}>
+          <Text
+            style={[styles.title, { fontSize: titleSize }, disabled && styles.textDisabled]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
           {!!badge && (
@@ -63,8 +89,18 @@ export function SelectRow({
           )}
         </View>
         {!!subtitle && (
-          <Text style={[styles.subtitle, disabled && styles.subtitleDisabled]}>{subtitle}</Text>
+          <Text
+            style={[
+              styles.subtitle,
+              { marginTop: subtitleGap },
+              subtitleTone === 'brand' && styles.subtitleBrand,
+              disabled && styles.subtitleDisabled,
+            ]}
+          >
+            {subtitle}
+          </Text>
         )}
+        {footer}
       </View>
       {trailing}
     </PressableScale>
@@ -78,7 +114,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: radii['2xl'],
     padding: 14,
   },
   rowTop: { alignItems: 'flex-start' },
@@ -92,20 +127,23 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDashed,
     backgroundColor: colors.surface,
   },
+  // Address cards align the dial with the first line of the title, not the top
+  // of the card.
+  radioTop: { marginTop: 2 },
   // The design draws selection as a thick ring rather than a filled dot.
   radioSelected: { borderWidth: 6, borderColor: colors.primary },
   radioDisabled: { borderColor: '#E6E9EA' },
   body: { flex: 1, minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  title: { flexShrink: 1, fontSize: fontSize.body, fontWeight: weight.heavy, color: colors.ink },
+  title: { flexShrink: 1, fontWeight: weight.heavy, color: colors.ink },
   textDisabled: { color: colors.disabled },
   subtitle: {
     fontSize: fontSize.caption,
     fontWeight: weight.semibold,
     color: colors.textSecondary,
-    marginTop: 2,
     lineHeight: 18,
   },
+  subtitleBrand: { color: colors.primaryDark },
   subtitleDisabled: { color: colors.disabledSoft },
   badge: {
     backgroundColor: colors.primarySoft,

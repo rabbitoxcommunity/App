@@ -220,6 +220,7 @@
     "asap": "في أسرع وقت — خلال 30 دقيقة",
     "asapNote": "يُعيَّن المندوب بعد تجهيز الطلب",
     "scheduleSlot": "تحديد موعد",
+    "slotToday": "اليوم، {{slot}}",
     "paymentMethod": "طريقة الدفع",
     "creditApproved": "معتمد",
     "creditAvailable": "متاح {{available}} من {{limit}} د.إ",
@@ -246,6 +247,25 @@
     "curbsideArriveHint": "اضغط \"لقد وصلت\" في التطبيق عند ركنك — سنخرج إليك عند الموقف {{bay}}.",
     "placed": "تم تقديم الطلب",
     "placedBody": "الطلب {{reference}} في الطريق"
+  },
+  "address": {
+    "addTitle": "إضافة عنوان جديد",
+    "editTitle": "تعديل العنوان",
+    "subtitle": "نوصّل في جميع أنحاء دبي · 7 صباحًا – 11 مساءً",
+    "labelField": "الاسم",
+    "labelPlaceholder": "المنزل · فيلا 24",
+    "linesField": "العنوان",
+    "linesPlaceholder": "الشارع، المنطقة، المدينة",
+    "phoneField": "الهاتف",
+    "phonePlaceholder": "+971 50 000 0000",
+    "optional": "اختياري",
+    "makePrimary": "اجعله عنواني الأساسي",
+    "primaryNote": "سيُختار تلقائيًا عند الدفع",
+    "primaryLocked": "اجعل عنوانًا آخر أساسيًا لتغيير ذلك",
+    "add": "إضافة العنوان",
+    "save": "حفظ التعديلات",
+    "added": "تمت إضافة العنوان",
+    "updated": "تم تحديث العنوان"
   },
   "slots": {
     "title": "اختر موعد التوصيل",

@@ -115,6 +115,7 @@ export function PrimaryButton({
   iconStart,
   style,
   height = 62,
+  labelSize = fontSize.lg,
 }: {
   label: string;
   onPress?: () => void;
@@ -124,6 +125,8 @@ export function PrimaryButton({
   iconStart?: IconName;
   style?: StyleProp<ViewStyle>;
   height?: number;
+  /** Sheet CTAs are drawn a step smaller than full-width screen CTAs. */
+  labelSize?: number;
 }) {
   const inactive = disabled || loading;
   return (
@@ -146,7 +149,7 @@ export function PrimaryButton({
       ) : (
         <>
           {iconStart && <Icon name={iconStart} size={21} color={colors.onPrimary} />}
-          <Text style={styles.primaryButtonLabel}>{label}</Text>
+          <Text style={[styles.primaryButtonLabel, { fontSize: labelSize }]}>{label}</Text>
           {iconEnd && <Icon name={iconEnd} size={20} color={colors.onPrimary} />}
         </>
       )}
@@ -269,7 +272,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { backgroundColor: colors.chipDisabled },
   primaryButtonLabel: {
-    fontSize: fontSize.lg,
     fontWeight: weight.heavy,
     color: colors.onPrimary,
   },

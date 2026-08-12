@@ -37,7 +37,16 @@
     },
     "plugins": [
       "expo-localization",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#47BB1C",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 112,
+          "resizeMode": "contain"
+        }
+      ]
     ]
   }
 }

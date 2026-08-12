@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  KeyboardAvoidingView,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -40,6 +42,8 @@ export function BottomSheet({
    * scrolling.
    */
   maxHeightRatio = 0.5,
+  /** Lifts the panel clear of the keyboard — set it on sheets that hold inputs. */
+  avoidKeyboard = false,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -47,6 +51,7 @@ export function BottomSheet({
   header?: React.ReactNode;
   footer?: React.ReactNode;
   maxHeightRatio?: number;
+  avoidKeyboard?: boolean;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   // `mounted` keeps the modal on screen through the closing animation.
@@ -110,9 +115,16 @@ export function BottomSheet({
 
   if (!mounted) return null;
 
+  // A plain View unless the sheet asked for keyboard avoidance — wrapping every
+  // sheet in one would change how the untouched ones lay out.
+  const Root = avoidKeyboard ? KeyboardAvoidingView : View;
+  const rootProps = avoidKeyboard
+    ? { behavior: Platform.select({ ios: 'padding' as const, android: 'height' as const }) }
+    : null;
+
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.root}>
+      <Root style={styles.root} {...rootProps}>
         <Animated.View style={[styles.backdrop, { opacity: backdrop }]} pointerEvents="none" />
 
         {/* Tapping the area above the panel dismisses it. */}
@@ -135,7 +147,7 @@ export function BottomSheet({
 
           {footer}
         </Animated.View>
-      </View>
+      </Root>
     </Modal>
   );
 }
