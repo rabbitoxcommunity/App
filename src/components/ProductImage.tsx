@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { colors } from '../theme';
 import { Icon, type IconName } from './Icon';
+import { Skeleton } from './Skeleton';
 
 /**
  * Stands in for the design's `<image-slot>`: renders the product photo when the
@@ -26,6 +27,10 @@ export function ProductImage({
   dimmed?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  // Photos come off the network, so there is a real gap before the first pixel
+  // lands. Errors settle it too — a broken URL must not pulse forever.
+  const [pending, setPending] = useState(true);
+
   const box: ViewStyle = {
     borderRadius: radius,
     ...(size ? { width: size, height: size } : { flex: 1 }),
@@ -35,7 +40,17 @@ export function ProductImage({
   return (
     <View style={[styles.base, box, style]}>
       {uri ? (
-        <Image source={{ uri }} style={styles.image} resizeMode="cover" />
+        <>
+          <Image
+            source={{ uri }}
+            style={styles.image}
+            resizeMode="cover"
+            onLoadEnd={() => setPending(false)}
+          />
+          {pending && (
+            <Skeleton style={StyleSheet.absoluteFill} radius={radius} height={undefined} />
+          )}
+        </>
       ) : (
         <Icon name={icon} size={size ? Math.round(size * 0.46) : 40} color={colors.disabled} />
       )}

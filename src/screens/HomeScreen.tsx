@@ -6,6 +6,7 @@ import { CategoryImage } from '../components/CategoryImage';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { ProductCard } from '../components/ProductCard';
+import { Skeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { Screen, IconButton, SectionHeader, TextLink } from '../components/ui';
 import { popularProducts, t as tr } from '../data/catalog';
@@ -217,12 +218,7 @@ export function HomeScreen() {
               scrollEventThrottle={16}
             >
               {ADS.map((ad) => (
-                <Image
-                  key={ad.id}
-                  source={{ uri: ad.image }}
-                  style={[styles.adImage, { width: sliderWidth }]}
-                  resizeMode="cover"
-                />
+                <AdSlide key={ad.id} uri={ad.image} width={sliderWidth} />
               ))}
             </ScrollView>
           </View>
@@ -275,6 +271,22 @@ export function HomeScreen() {
         }}
       />
     </Screen>
+  );
+}
+
+/** Banners are remote, so each slide holds a placeholder until its image lands. */
+function AdSlide({ uri, width }: { uri: string; width: number }) {
+  const [pending, setPending] = useState(true);
+  return (
+    <View style={[styles.adImage, { width }]}>
+      <Image
+        source={{ uri }}
+        style={styles.adImage}
+        resizeMode="cover"
+        onLoadEnd={() => setPending(false)}
+      />
+      {pending && <Skeleton style={StyleSheet.absoluteFill} height={undefined} radius={0} />}
+    </View>
   );
 }
 

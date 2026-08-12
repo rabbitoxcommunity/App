@@ -35,6 +35,8 @@ type OrdersContextValue = {
   activeOrder: Order | null;
   pastOrders: Order[];
   credit: CreditAccount;
+  /** True until the persisted store has been read — screens show skeletons. */
+  isLoading: boolean;
   getOrder: (id: string) => Order | undefined;
   /**
    * Re-reads the persisted store. Pull-to-refresh calls this; when orders move
@@ -221,6 +223,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       activeOrder,
       pastOrders,
       credit,
+      isLoading: !hydrated,
       getOrder,
       refresh: load,
       placeOrder,
@@ -233,6 +236,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       activeOrder,
       pastOrders,
       credit,
+      hydrated,
       getOrder,
       load,
       placeOrder,

@@ -5,6 +5,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { useToast } from '../components/Toast';
+import { OrderCardSkeleton, SkeletonList } from '../components/Skeleton';
 import { EmptyState, Screen } from '../components/ui';
 import type { Order } from '../data/types';
 import { useLang } from '../hooks/useLang';
@@ -23,7 +24,7 @@ export function OrdersScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { show } = useToast();
-  const { activeOrder, pastOrders, refresh } = useOrders();
+  const { activeOrder, pastOrders, refresh, isLoading } = useOrders();
   const { addItem } = useCart();
 
   const [tab, setTab] = useState<'past' | 'active'>('past');
@@ -106,7 +107,13 @@ export function OrdersScreen() {
         </PressableScale>
       </View>
 
-      {orders.length === 0 ? (
+      {isLoading ? (
+        // The persisted store is still being read: show the shape of the list
+        // rather than an empty state that would be wrong a moment later.
+        <View style={styles.list}>
+          <SkeletonList count={3}>{() => <OrderCardSkeleton />}</SkeletonList>
+        </View>
+      ) : orders.length === 0 ? (
         // Scrollable even with nothing in it, so the pull gesture still works —
         // an empty list is exactly when someone reaches for refresh.
         <ScrollView
