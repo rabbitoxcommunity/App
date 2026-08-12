@@ -1,0 +1,80 @@
+/**
+ * Generated — do not edit by hand.
+ *
+ * Codepoints for the Material Symbols Rounded glyphs used by the design
+ * (`FreshCart App.dc.html`). The subsetted fonts in `assets/fonts` contain
+ * exactly these glyphs, so anything added here needs the fonts regenerating.
+ *
+ * Rendered by codepoint rather than by ligature name: React Native does not
+ * apply the font's `GSUB` ligature table reliably across platforms, so writing
+ * "shopping_cart" into a <Text> would show the literal string on some devices.
+ */
+export const CODEPOINTS = {
+  "account_balance_wallet": 0xe850,
+  "add": 0xe145,
+  "add_shopping_cart": 0xe854,
+  "arrow_back": 0xe5c4,
+  "arrow_forward": 0xe5c8,
+  "bakery_dining": 0xea53,
+  "battery_full": 0xe1a5,
+  "bolt": 0xea0b,
+  "calendar_month": 0xebcc,
+  "call": 0xf0d4,
+  "check": 0xe668,
+  "check_circle": 0xf0be,
+  "chevron_right": 0xe5cc,
+  "child_care": 0xeb41,
+  "close": 0xe5cd,
+  "cookie": 0xeaac,
+  "credit_card": 0xe8a1,
+  "delete": 0xe92e,
+  "delivery_dining": 0xeb28,
+  "directions_car": 0xeff7,
+  "eco": 0xea35,
+  "egg": 0xeacc,
+  "emoji_food_beverage": 0xea1b,
+  "error": 0xf8b6,
+  "expand_more": 0xe5cf,
+  "favorite_border": 0xe87e,
+  "grid_view": 0xe9b0,
+  "grocery": 0xef97,
+  "handshake": 0xebcb,
+  "headset_mic": 0xe311,
+  "home": 0xe9b2,
+  "info": 0xe88e,
+  "inventory_2": 0xe1a1,
+  "kebab_dining": 0xe842,
+  "language": 0xea07,
+  "local_activity": 0xe553,
+  "local_cafe": 0xeb44,
+  "local_drink": 0xe544,
+  "local_parking": 0xe54f,
+  "local_shipping": 0xe558,
+  "location_on": 0xf1db,
+  "lock": 0xe899,
+  "notifications": 0xe7f5,
+  "notifications_active": 0xe7f7,
+  "nutrition": 0xe110,
+  "payments": 0xef63,
+  "person": 0xf0d3,
+  "receipt": 0xe8b0,
+  "receipt_long": 0xef6e,
+  "remove": 0xe15b,
+  "replay": 0xe042,
+  "schedule": 0xefd6,
+  "search": 0xef7a,
+  "shopping_basket": 0xe8cb,
+  "shopping_cart": 0xe8cc,
+  "signal_cellular_alt": 0xe202,
+  "soap": 0xf1b2,
+  "south_west": 0xf1e5,
+  "storefront": 0xea12,
+  "swap_vert": 0xe8d5,
+  "tune": 0xe429,
+  "verified_user": 0xf013,
+  "water_drop": 0xe798,
+  "wifi": 0xe63e,
+  "wifi_off": 0xe648,
+} as const;
+
+export type SymbolName = keyof typeof CODEPOINTS;

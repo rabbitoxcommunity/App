@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "FreshCart",
+    "slug": "freshcart",
+    "scheme": "freshcart",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFFFFF",
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000/api"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.freshcart.app",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true,
+        "CFBundleLocalizations": [
+          "en",
+          "ar"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.freshcart.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#47BB1C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-localization",
+      "expo-font"
+    ]
+  }
+}
