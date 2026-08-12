@@ -7,6 +7,7 @@ import { useCart } from '../store/CartContext';
 import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
 import { formatAmount } from '../utils/format';
 import { Icon } from './Icon';
+import { ImpactStyle, withTap } from '../utils/haptics';
 
 /**
  * Floating "N items · AED X — View cart" bar that sits above the tab bar while
@@ -22,7 +23,7 @@ export function CartPeekBar({ onPress, bottom }: { onPress: () => void; bottom: 
     <View style={[styles.wrapper, { bottom }]} pointerEvents="box-none">
       <Pressable
         accessibilityRole="button"
-        onPress={onPress}
+        onPress={withTap(onPress, ImpactStyle.Medium)}
         style={({ pressed }) => [styles.bar, shadow.floatingBar, pressed && styles.pressed]}
       >
         <Icon name="basket" size={24} color={colors.onPrimary} />

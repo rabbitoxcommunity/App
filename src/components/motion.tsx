@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { colors, radii } from '../theme';
+import { tap, type ImpactStyle } from '../utils/haptics';
 
 /**
  * Shared motion primitives. Everything here uses the built-in `Animated` API
@@ -31,10 +32,19 @@ export function PressableScale({
   style,
   containerStyle,
   disabled,
+  haptic,
   ...rest
 }: PressableProps & {
   children: React.ReactNode;
   activeScale?: number;
+  /**
+   * Haptics are opt-in and reserved for the app's main actions — view cart,
+   * checkout, place order, back, search, apply, add to cart. Ordinary rows,
+   * chips, tiles and cards stay silent, so the feedback keeps its meaning.
+   *
+   * `true` for the light tap, or an `ImpactStyle` to pick the weight.
+   */
+  haptic?: ImpactStyle | boolean;
   style?: StyleProp<ViewStyle>;
   /**
    * Layout applied to the touchable itself rather than the scaling surface.
@@ -57,7 +67,13 @@ export function PressableScale({
   return (
     <Pressable
       disabled={disabled}
-      onPressIn={() => !disabled && to(activeScale)}
+      // Fires with the scale dip, not on release: the tap should land under the
+      // finger at the moment the button visibly reacts.
+      onPressIn={() => {
+        if (disabled) return;
+        if (haptic) tap(haptic === true ? undefined : haptic);
+        to(activeScale);
+      }}
       onPressOut={() => to(1)}
       style={containerStyle}
       {...rest}

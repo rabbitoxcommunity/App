@@ -20,6 +20,7 @@ import { useCart } from '../store/CartContext';
 import { availableCredit, useOrders } from '../store/OrdersContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
+import { ImpactStyle } from '../utils/haptics';
 import { AddressSheet } from './AddressSheet';
 import { CarColourSheet } from './CarColourSheet';
 
@@ -446,6 +447,7 @@ export function CheckoutScreen({ navigation }: Props) {
           accessibilityRole="button"
           accessibilityState={{ disabled: placing || lines.length === 0 }}
           disabled={placing || lines.length === 0}
+          haptic={ImpactStyle.Medium}
           onPress={place}
           style={[styles.placeButton, (placing || lines.length === 0) && styles.placeButtonDisabled]}
         >

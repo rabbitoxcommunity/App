@@ -15,6 +15,7 @@ import { formatMoney, formatMoneyFrom } from '../utils/format';
 import { Icon } from './Icon';
 import { ProductImage } from './ProductImage';
 import { StockBadge } from './StockBadge';
+import { ImpactStyle, withTap } from '../utils/haptics';
 
 /**
  * Full-width list row used by the category listing. Out-of-stock rows are
@@ -91,7 +92,7 @@ export function ProductRow({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('product.addToCart')}
-            onPress={onAdd}
+            onPress={withTap(onAdd, ImpactStyle.Medium)}
             hitSlop={6}
             style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           >

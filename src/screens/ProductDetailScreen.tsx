@@ -26,6 +26,7 @@ import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
+import { ImpactStyle, withTap } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetail'>;
 
@@ -276,7 +277,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             accessibilityRole="button"
             accessibilityLabel={t('product.addToCart')}
             disabled={!sellable}
-            onPress={() => addVariant(product, variant, quantity)}
+            onPress={withTap(() => addVariant(product, variant, quantity), ImpactStyle.Medium)}
             style={({ pressed }) => [
               styles.addButton,
               !sellable && styles.addButtonDisabled,

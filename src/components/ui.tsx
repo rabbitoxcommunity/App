@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
+import { ImpactStyle, withTap } from '../utils/haptics';
 import { Icon, type IconName } from './Icon';
 
 /* ------------------------------------------------------------------ Screen */
@@ -59,7 +60,7 @@ export function IconButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      onPress={onPress}
+      onPress={withTap(onPress)}
       style={({ pressed }) => [
         styles.iconButton,
         { backgroundColor: background, opacity: pressed ? 0.7 : 1 },
@@ -134,7 +135,9 @@ export function PrimaryButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       disabled={inactive}
-      onPress={onPress}
+      // Medium: these are the app's committing actions (Place order, Checkout,
+      // Save), so they land heavier than an ordinary row or chip.
+      onPress={withTap(onPress, ImpactStyle.Medium)}
       style={({ pressed }) => [
         styles.primaryButton,
         { height },

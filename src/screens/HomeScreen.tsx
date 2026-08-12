@@ -130,6 +130,7 @@ export function HomeScreen() {
             <PressableScale
               accessibilityRole="button"
               accessibilityLabel={t('common.search')}
+              haptic
               onPress={runSearch}
               style={styles.searchButton}
             >

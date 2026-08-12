@@ -14,6 +14,7 @@ import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
 import { Icon } from './Icon';
 import { ProductImage } from './ProductImage';
+import { ImpactStyle, withTap } from '../utils/haptics';
 
 export const PRODUCT_CARD_WIDTH = 152;
 
@@ -74,7 +75,7 @@ export function ProductCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('product.addToCart')}
-            onPress={onAdd}
+            onPress={withTap(onAdd, ImpactStyle.Medium)}
             hitSlop={6}
             style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           >

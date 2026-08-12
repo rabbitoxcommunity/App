@@ -25,6 +25,7 @@ import type { RootNavigation } from '../navigation/types';
 import { useCart, type ResolvedCartLine } from '../store/CartContext';
 import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
+import { ImpactStyle, withTap } from '../utils/haptics';
 
 export function CartScreen() {
   const { t, language } = useLang();
@@ -178,7 +179,7 @@ export function CartScreen() {
             </View>
             <Pressable
               accessibilityRole="button"
-              onPress={promoCode ? removePromo : onApplyPromo}
+              onPress={withTap(promoCode ? removePromo : onApplyPromo)}
               style={({ pressed }) => [styles.promoButton, pressed && styles.pressed]}
             >
               <Text style={styles.promoButtonLabel}>
@@ -220,7 +221,7 @@ export function CartScreen() {
         <View style={styles.checkoutWrap}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => navigation.navigate('Checkout')}
+            onPress={withTap(() => navigation.navigate('Checkout'), ImpactStyle.Medium)}
             style={({ pressed }) => [styles.checkoutBar, shadow.primaryCta, pressed && styles.pressed]}
           >
             <View style={styles.checkoutText}>
