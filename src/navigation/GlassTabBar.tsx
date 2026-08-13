@@ -130,14 +130,16 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
                   style={styles.tab}
                 >
                   <View>
-                    <Bump value={focused ? 'on' : 'off'}>
-                      <Icon
-                        name={icon}
-                        size={24}
-                        filled={focused}
-                        color={focused ? colors.primaryDarker : colors.inkMuted}
-                      />
-                    </Bump>
+                    {/* No `Bump` here: selection is already carried by the
+                        sliding capsule, the filled glyph and the colour
+                        change. Scaling the icon on top of that reads as the
+                        tab zooming under the finger. */}
+                    <Icon
+                      name={icon}
+                      size={24}
+                      filled={focused}
+                      color={focused ? colors.primaryDarker : colors.inkMuted}
+                    />
                     {badge > 0 && (
                       <Bump value={badge} style={styles.badge}>
                         <Text style={styles.badgeLabel}>{badge > 99 ? '99+' : badge}</Text>
@@ -227,8 +229,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   row: { flexDirection: 'row', paddingHorizontal: PILL_INSET },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  label: { fontSize: fontSize.micro },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  label: {
+    fontSize: fontSize.micro,
+    // The glyph's Text box is a full em tall and the label carries its own
+    // line box, so both sit on padding the `gap` cannot reach. Trimming the
+    // label's line height closes the rest of the space.
+    lineHeight: 12,
+    ...Platform.select({ android: { includeFontPadding: false } }),
+  },
   badge: {
     position: 'absolute',
     top: -4,
