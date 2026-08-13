@@ -9,6 +9,7 @@ import { OrderCardSkeleton, SkeletonList } from '../components/Skeleton';
 import { EmptyState, Screen } from '../components/ui';
 import type { Order } from '../data/types';
 import { useLang } from '../hooks/useLang';
+import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCart } from '../store/CartContext';
 import { useOrders } from '../store/OrdersContext';
@@ -26,6 +27,7 @@ export function OrdersScreen() {
   const { show } = useToast();
   const { activeOrder, pastOrders, refresh, isLoading } = useOrders();
   const { addItem } = useCart();
+  const tabBarHeight = useGlassTabBarHeight();
 
   const [tab, setTab] = useState<'past' | 'active'>('past');
   /** The order whose receipt is open, or `null` when the sheet is closed. */
@@ -110,14 +112,14 @@ export function OrdersScreen() {
       {isLoading ? (
         // The persisted store is still being read: show the shape of the list
         // rather than an empty state that would be wrong a moment later.
-        <View style={styles.list}>
+        <View style={[styles.list, { paddingBottom: tabBarHeight }]}>
           <SkeletonList count={3}>{() => <OrderCardSkeleton />}</SkeletonList>
         </View>
       ) : orders.length === 0 ? (
         // Scrollable even with nothing in it, so the pull gesture still works —
         // an empty list is exactly when someone reaches for refresh.
         <ScrollView
-          contentContainerStyle={styles.emptyContent}
+          contentContainerStyle={[styles.emptyContent, { paddingBottom: tabBarHeight }]}
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
         >
@@ -131,7 +133,7 @@ export function OrdersScreen() {
         </ScrollView>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
         >

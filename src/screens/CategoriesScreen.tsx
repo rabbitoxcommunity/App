@@ -15,6 +15,7 @@ import { Screen, IconButton } from '../components/ui';
 import { productsInCategory, t as tr } from '../data/catalog';
 import { CATEGORIES } from '../data/mock';
 import { useLang } from '../hooks/useLang';
+import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 
@@ -25,6 +26,7 @@ import { colors, fontSize, radii, spacing, weight } from '../theme';
 export function CategoriesScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
+  const tabBarHeight = useGlassTabBarHeight();
 
   /**
    * Held in state rather than read straight from the module so pull-to-refresh
@@ -61,7 +63,7 @@ export function CategoriesScreen() {
         keyExtractor={(item) => item.id}
         numColumns={3}
         columnWrapperStyle={styles.column}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.headerRow}>

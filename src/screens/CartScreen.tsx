@@ -21,6 +21,7 @@ import { useToast } from '../components/Toast';
 import { EmptyState, Screen, TextLink } from '../components/ui';
 import { t as tr, variantLabel } from '../data/catalog';
 import { useLang } from '../hooks/useLang';
+import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCart, type ResolvedCartLine } from '../store/CartContext';
 import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
@@ -45,6 +46,7 @@ export function CartScreen() {
   } = useCart();
 
   const [promoInput, setPromoInput] = useState('');
+  const tabBarHeight = useGlassTabBarHeight();
 
   const onRemove = (line: ResolvedCartLine) => {
     const { productId, variantId, quantity } = line;
@@ -89,6 +91,7 @@ export function CartScreen() {
           <Text style={styles.headerTitle}>{t('cart.title', { count: 0 })}</Text>
         </View>
         <EmptyState
+          style={{ paddingBottom: tabBarHeight }}
           icon="cart-outline"
           title={t('cart.emptyTitle')}
           body={t('cart.emptyBody')}
@@ -218,7 +221,7 @@ export function CartScreen() {
         </ScrollView>
 
         {/* Checkout bar */}
-        <View style={styles.checkoutWrap}>
+        <View style={[styles.checkoutWrap, { paddingBottom: tabBarHeight }]}>
           <Pressable
             accessibilityRole="button"
             onPress={withTap(() => navigation.navigate('Checkout'), ImpactStyle.Medium)}

@@ -1,0 +1,559 @@
+================================================================================
+FRESHCART — BACKEND DESIGN
+Node.js · Express · MongoDB (Mongoose)
+================================================================================
+Design only. No implementation yet.
+
+One server serves two clients:
+  - the React Native app  (public API)
+  - the CMS admin, ~90% built as a frontend  (admin API)
+
+Schemas below are derived from the app's real type layer, src/data/types.ts.
+Where the design deliberately departs from what the app does today, it is
+called out under DEPARTURE. Those are the decisions worth arguing about
+before anyone writes a route.
+
+Companion document: CMS-SCOPE.txt (modules, gaps, build order).
+
+
+================================================================================
+1. STACK AND CONVENTIONS
+================================================================================
+
+  Runtime        Node 20 LTS
+  Framework      Express 4 (5 is fine; 4 has the wider middleware ecosystem)
+  Database       MongoDB 7, Mongoose 8
+  Validation     Zod at every route boundary, before the handler runs
+  Auth           JWT access token (15 min) + refresh token (30 days)
+  Passwords      Admin only, argon2. Customers never have one — phone + OTP.
+  Logging        pino, with a request id on every line
+  Testing        vitest + mongodb-memory-server
+
+CONVENTIONS
+
+  - Every response is JSON. Errors share one shape (section 8).
+  - Every collection stores createdAt / updatedAt (Mongoose timestamps).
+  - Documents expose `id` (string), never `_id` or `__v`. Strip in toJSON.
+  - Soft delete via `archivedAt` on catalog documents. Orders are never
+    deleted.
+  - All list endpoints paginate: ?page=1&limit=20, response carries
+    { items, page, limit, total }.
+
+
+================================================================================
+2. PROJECT STRUCTURE
+================================================================================
+
+  src/
+    server.ts               app bootstrap, graceful shutdown
+    app.ts                  express instance, middleware chain
+    config/
+      env.ts                zod-validated process.env, fails fast
+      db.ts                 mongoose connection
+    models/                 one file per collection (section 3)
+    modules/
+      auth/                 routes, controller, service
+      catalog/
+      cart/                 the pricing engine (section 6)
+      orders/               includes the state machine (section 7)
+      customers/
+      addresses/
+      credit/
+      promos/
+      fulfillment/          stores, slots, riders
+      content/              legal pages, translation strings
+      merchandising/        banners, popular, trending
+      admin/                admin-only routes, mounted under /admin
+      notifications/
+    middleware/
+      auth.ts               requireCustomer, requireAdmin(role)
+      validate.ts           zod wrapper
+      error.ts              central error handler
+      rateLimit.ts
+    lib/
+      money.ts              fils <-> display helpers (section 4)
+      localized.ts          Localized helpers, Accept-Language picking
+      reference.ts          order reference + confirmation code generation
+    seed/
+      index.ts              imports the app's mock data (section 9)
+
+
+================================================================================
+3. DATA MODEL
+================================================================================
+19 collections. Field names match the app's types exactly unless noted, so
+the client needs no mapping layer.
+
+--------------------------------------------------------------------------------
+SHARED SUBDOCUMENT — Localized
+--------------------------------------------------------------------------------
+  { en: String (required), ar: String (required) }
+
+  Used by: category names, product names/subtitles/descriptions/shelf,
+  variant axis + option names, address label/lines, payment titles, store
+  name/details, order line name/variantLabel, rider name, credit entry
+  title/subtitle, car colour.
+
+  RULE: both languages are required at the schema level. The app has no
+  fallback path — a missing `ar` renders an empty string to an Arabic user.
+  This single constraint prevents the most likely production bug.
+
+--------------------------------------------------------------------------------
+3.1  categories
+--------------------------------------------------------------------------------
+  slug            String, unique, indexed     e.g. "fruits-veg"
+  name            Localized
+  imageUrl        String                      see DEPARTURE below
+  icon            String, enum: IconName      picklist, app-owned (sec. 5)
+  sortOrder       Number                      merchandising controls this
+  subcategories   [{ slug, name: Localized }]
+  archivedAt      Date | null
+
+  DEPARTURE: the app types `Category.image` as a bundled ImageSourcePropType
+  (a local require). Server-driven categories must send a URL instead. This
+  is an app-side type change: `image: ImageSourcePropType` becomes
+  `imageUrl?: string`, and CategoryImage falls back to the icon while it
+  loads. Small change, but it must happen or categories cannot be dynamic.
+
+  NOTE: `Subcategory.count` in the app's type is a derived number. Do not
+  store it — compute it on read, or it goes stale the moment stock changes.
+
+--------------------------------------------------------------------------------
+3.2  products
+--------------------------------------------------------------------------------
+  categoryId       ObjectId -> categories, indexed
+  subcategorySlug  String | null
+  name             Localized
+  subtitle         Localized
+  description      Localized | null
+  shelf            Localized | null
+  imageUrl         String | null
+  icon             String, enum: IconName     placeholder glyph
+  axes             [{ slug, name: Localized,
+                      options: [{ slug, name: Localized }] }]
+  variants         [variantSchema]            embedded, see below
+  defaultVariantId ObjectId
+  popularity       Number, indexed            drives the "Popular" sort
+  archivedAt       Date | null
+  createdAt        Date, indexed              drives the "Newest" sort
+
+  variantSchema (embedded — variants are never queried independently of
+  their product, and a product has single-digit SKUs):
+    _id             ObjectId
+    optionIds       Map<String, String>       axis slug -> option slug
+    price           Number (fils)             see section 4
+    compareAtPrice  Number (fils) | null
+    barcode         String, sparse unique index
+    stock           String, enum: available | low | out
+    lowStockCount   Number | null
+
+  INDEXES
+    { categoryId: 1, archivedAt: 1 }
+    { popularity: -1 }
+    { createdAt: -1 }
+    text index on name.en, name.ar, subtitle.en, subtitle.ar  (search)
+
+  NOTE ON STOCK: it is a three-state flag set by staff, never a live count.
+  The app's own type comments say so. Do not model inventory quantities
+  here — `lowStockCount` is a display hint only ("Only 3 left") and must
+  not be decremented on purchase.
+
+--------------------------------------------------------------------------------
+3.3  customers
+--------------------------------------------------------------------------------
+  phone           String, E.164, unique, indexed
+  name            String
+  creditApproved  Boolean, default false
+  language        String, enum: en | ar, default en
+  blockedAt       Date | null
+
+  No password, no email. The app is phone-first throughout.
+
+--------------------------------------------------------------------------------
+3.4  addresses
+--------------------------------------------------------------------------------
+  customerId      ObjectId -> customers, indexed
+  label           Localized
+  lines           Localized
+  phone           String | null
+  isPrimary       Boolean
+
+  RULE: exactly one primary per customer. Enforce in a transaction on write
+  — the app's AddressesContext already assumes this invariant holds and
+  never clears the previous winner itself.
+
+--------------------------------------------------------------------------------
+3.5  otpChallenges
+--------------------------------------------------------------------------------
+  phone           String, indexed
+  codeHash        String                      argon2, never the plain code
+  channel         String, enum: sms | whatsapp
+  attempts        Number, default 0
+  expiresAt       Date                        TTL index, 5 minutes
+  consumedAt      Date | null
+
+  TTL index on expiresAt gives automatic cleanup.
+
+--------------------------------------------------------------------------------
+3.6  orders
+--------------------------------------------------------------------------------
+  reference        String, unique, indexed    server-issued, e.g. FC-2841
+  customerId       ObjectId -> customers, indexed
+  fulfillment      String, enum: delivery | pickup
+  status           String, enum: OrderStatus (8 values)
+  placedAt         Date, indexed
+  events           [{ status, at: Date, note: Localized | null }]
+  lines            [orderLineSchema]
+  subtotal         Number (fils)
+  deliveryFee      Number (fils)
+  discount         Number (fils)
+  total            Number (fils)
+  paymentKind      String, enum: card | credit | cash
+  confirmationCode String                     server-issued, 4 digits
+  promoCode        String | null
+  addressSnapshot  { label, lines, phone } | null    see NOTE
+  storeId          ObjectId -> pickupStores | null
+  rider            { riderId, name: Localized, etaMinutes } | null
+  estimatedAt      Date | null
+  slotId           ObjectId | null            only if slots are kept
+  car              { plate, colour: Localized,
+                     colourHex, bodyType } | null    curbside only
+  arrival          String, enum: on_way | near | null
+  cancelledAt      Date | null
+  cancelReason     String | null
+
+  orderLineSchema:
+    productId      ObjectId
+    variantId      ObjectId
+    quantity       Number
+    unitPrice      Number (fils)   captured at purchase
+    name           Localized       snapshot
+    variantLabel   Localized       snapshot
+    icon           String          snapshot
+
+  NOTE ON SNAPSHOTS: the app's type stores addressId, but an address the
+  customer later edits would silently rewrite the history of a delivered
+  order. Store a snapshot of the address on the order instead. Same reason
+  the line items already snapshot name, label and price — the app's own
+  comment on `unitPrice` says "the catalogue may change later". Apply that
+  reasoning consistently.
+
+  DEPARTURE: `car` and `arrival` do not exist on the app's Order type at
+  all — CheckoutScreen collects both and discards them at submit. They are
+  added here because curbside staff cannot work without them.
+
+  INDEXES
+    { customerId: 1, placedAt: -1 }
+    { status: 1, placedAt: -1 }       the CMS order queue
+    { reference: 1 } unique
+
+--------------------------------------------------------------------------------
+3.7  creditAccounts
+--------------------------------------------------------------------------------
+  customerId      ObjectId -> customers, unique, indexed
+  limit           Number (fils)
+  balance         Number (fils)               owed by the customer
+  dueDate         Date
+
+--------------------------------------------------------------------------------
+3.8  creditEntries
+--------------------------------------------------------------------------------
+  accountId       ObjectId -> creditAccounts, indexed
+  kind            String, enum: purchase | payment
+  title           Localized
+  subtitle        Localized
+  amount          Number (fils)   positive purchase, negative payment
+  settled         Boolean
+  orderId         ObjectId | null
+  at              Date, indexed
+
+  DEPARTURE: the app embeds entries inside CreditAccount. Split them — a
+  ledger grows without bound and must paginate.
+
+  RULE: balance is never written directly by a route. It is recomputed from
+  entries inside the same transaction that appends one. This is the fix for
+  the CRITICAL item in CMS-SCOPE section 2.
+
+--------------------------------------------------------------------------------
+3.9  promoCodes
+--------------------------------------------------------------------------------
+  code            String, uppercase, unique, indexed
+  discountType    String, enum: percent | fixed
+  value           Number            percent points, or fils
+  minSubtotal     Number (fils) | null
+  startsAt        Date | null
+  endsAt          Date | null
+  maxRedemptions  Number | null
+  perCustomerCap  Number | null
+  redemptions     Number, default 0
+  active          Boolean
+
+--------------------------------------------------------------------------------
+3.10 promoRedemptions
+--------------------------------------------------------------------------------
+  promoId, customerId, orderId, at
+  Unique index { promoId, orderId } — makes double-redemption impossible
+  rather than merely unlikely.
+
+--------------------------------------------------------------------------------
+3.11 pickupStores
+--------------------------------------------------------------------------------
+  name            Localized
+  details         Localized
+  bays            Number
+  baysFree        Number
+  active          Boolean
+
+--------------------------------------------------------------------------------
+3.12 riders
+--------------------------------------------------------------------------------
+  name            Localized
+  phone           String
+  active          Boolean
+  currentOrderId  ObjectId | null
+
+--------------------------------------------------------------------------------
+3.13 deliverySlots           (only if slots are kept — see section 10)
+--------------------------------------------------------------------------------
+  date            String (ISO date), indexed
+  label           Localized
+  note            Localized | null
+  fee             Number (fils) | null
+  capacity        Number
+  booked          Number
+  recommended     Boolean
+
+--------------------------------------------------------------------------------
+3.14 paymentMethods
+--------------------------------------------------------------------------------
+  kind                    String, enum: card | credit | cash
+  title                   Localized
+  subtitle                Localized | null
+  requiresCreditApproval  Boolean
+  enabled                 Boolean
+  sortOrder               Number
+
+--------------------------------------------------------------------------------
+3.15 banners
+--------------------------------------------------------------------------------
+  imageUrl, linkType (category|product|none), linkId,
+  startsAt, endsAt, sortOrder, active
+
+--------------------------------------------------------------------------------
+3.16 settings                (single document)
+--------------------------------------------------------------------------------
+  currency            String, default AED
+  deliveryFee         Number (fils), default 500
+  deliveryEtaMinutes  Number, default 30
+  minOrder            Number (fils) | null
+  languages           [String], default [en, ar]
+  curbsideEnabled     Boolean
+  creditEnabled       Boolean
+  carColours          [{ hex, name: Localized }]      11 entries seeded
+  carBodyTypes        [String]  sedan|suv|pickup|coupe
+
+--------------------------------------------------------------------------------
+3.17 adminUsers
+--------------------------------------------------------------------------------
+  email, passwordHash (argon2), name,
+  role: owner | manager | staff, active, lastLoginAt
+
+--------------------------------------------------------------------------------
+3.18 auditLog
+--------------------------------------------------------------------------------
+  adminId, action, collection, documentId, before, after, at
+
+  Write on every admin mutation to price, stock, credit limit and order
+  status. These are the four fields worth being able to answer questions
+  about later.
+
+--------------------------------------------------------------------------------
+3.19 notifyRequests / searchLogs
+--------------------------------------------------------------------------------
+  notifyRequests  { customerId, variantId, createdAt, notifiedAt }
+                  back-in-stock, captured from the app's "Notify me" button
+  searchLogs      { query, resultCount, customerId, at }
+                  zero-result queries are the cheapest catalogue-gap signal
+
+
+================================================================================
+4. MONEY
+================================================================================
+Store every amount as an INTEGER number of fils (1 AED = 100 fils).
+
+WHY: the app currently holds prices as floats — 11, 6.5, 17.25, 4.25 — and
+patches the rounding by hand (`Math.round(x * 100) / 100` appears in both
+CheckoutScreen and OrdersContext). That works until a basket accumulates
+enough lines for the error to surface in a total a customer disputes.
+
+  AED 11.00  ->  1100
+  AED  6.50  ->   650
+  AED  4.25  ->   425
+
+The API sends fils. The app divides by 100 at the formatting boundary only,
+inside utils/format.ts, which is already the single place money becomes a
+string. Nothing else in the app needs to change.
+
+
+================================================================================
+5. THE ICON ENUM
+================================================================================
+`icon` on products and categories is not free text. It maps to a glyph in
+the app's bundled Material Symbols subset (src/components/Icon.tsx — around
+70 names, e.g. p-milk, cat-dairy, p-bread).
+
+  - The backend stores the string and validates it against a checked-in
+    list.
+  - The CMS must offer it as a picklist, not an input.
+  - An unknown name renders as an invisible glyph in the app, so validate
+    on write rather than discovering it in production.
+
+Keep the list in one shared JSON file, generated from the app's GLYPHS map,
+so app and server cannot drift.
+
+
+================================================================================
+6. THE PRICING ENGINE
+================================================================================
+The single most important piece of this backend, and the fix for the
+biggest CRITICAL item in CMS-SCOPE.
+
+  POST /cart/price
+    in   { lines: [{ variantId, quantity }], promoCode?, fulfillment,
+           addressId? }
+    out  { lines: [{ variantId, quantity, unitPrice, lineTotal,
+                     name, variantLabel, icon, stock }],
+           subtotal, deliveryFee, discount, total,
+           promo: { code, applied, reason? },
+           unavailable: [variantId] }
+
+RULES
+  1. Prices are read from the database, never accepted from the client.
+  2. Out-of-stock variants are returned in `unavailable` and excluded from
+     the totals — the app can then show them struck through.
+  3. Delivery fee: 0 for pickup, else settings.deliveryFee (later, the
+     zone's fee).
+  4. Promo validation runs here and returns a reason on failure, so the
+     cart can explain itself rather than just refusing.
+  5. total = subtotal - discount + deliveryFee, computed in fils.
+
+  POST /orders takes the same input shape and re-prices server-side before
+  writing. It must never trust a total sent by the client. If a client-sent
+  total is present and disagrees, reject with 409 and the correct figures —
+  that usually means the catalogue changed while the customer was in
+  checkout.
+
+
+================================================================================
+7. ORDER STATE MACHINE
+================================================================================
+Both chains already exist in the app (data/types.ts: DELIVERY_FLOW,
+PICKUP_FLOW). The server owns them.
+
+  delivery:  placed -> packed -> out_for_delivery -> delivered
+  pickup:    placed -> packed -> ready_for_pickup -> customer_arrived
+                    -> handed_over
+
+RULES
+  - Only forward transitions along the order's own chain. Reject anything
+    else with 409, including a delivery status on a pickup order.
+  - `cancelled` is reachable from placed or packed only.
+  - customer_arrived is the one transition the CUSTOMER may trigger
+    (POST /orders/:id/arrived). Everything else is staff-only.
+  - handed_over requires customer_arrived first — the store cannot hand
+    over an order to someone who has not said they are there. The app
+    already encodes this rule client-side; move it here.
+  - Every transition appends to `events` with a timestamp. The tracking
+    screen renders that array directly.
+  - Every transition fires a push notification (section 11).
+
+
+================================================================================
+8. ERRORS
+================================================================================
+One shape everywhere:
+
+  { "error": { "code": "PROMO_EXPIRED",
+               "message": "This promo code has expired.",
+               "details": { } } }
+
+  400 VALIDATION_FAILED      zod rejected the body
+  401 UNAUTHENTICATED        missing or expired token
+  403 FORBIDDEN              wrong role
+  404 NOT_FOUND
+  409 CONFLICT               bad state transition, stale price
+  429 RATE_LIMITED           OTP abuse
+  500 INTERNAL
+
+`code` is stable and machine-readable; the app maps it to a translated
+string. `message` is English, for logs and the CMS — never render it to a
+customer, because it is not localised.
+
+
+================================================================================
+9. SEEDING
+================================================================================
+The app's mock data is a complete, coherent fixture set. Import it rather
+than inventing new data:
+
+  src/data/mock.ts     CATEGORIES, PRODUCTS, PROMO_CODES, DELIVERY_FEE,
+                       DELIVERY_ETA_MINUTES
+  src/data/orders.ts   ADDRESSES, PAYMENT_METHODS, PICKUP_STORES,
+                       CAR_COLOURS, PAST_ORDERS, ACTIVE_ORDER,
+                       CREDIT_ACCOUNT
+
+The seeded orders were reconciled recently — line items sum to their
+subtotals and the credit ledger balances against its entries. Preserve that
+when converting to fils, and add an assertion to the seed script so it
+stays true.
+
+Category tile artwork and the icon font live in the app bundle. Upload the
+tile images to storage during seeding and write the resulting URLs to
+`categories.imageUrl`.
+
+
+================================================================================
+10. OPEN DECISIONS
+================================================================================
+Both change the schema. Settle before writing models.
+
+  1. DELIVERY SLOTS — keep or drop?
+     The DeliverySlot type, slotDays/slotsForDate and SlotPickerSheet still
+     exist in the app but nothing renders them; scheduling was removed from
+     both flows. If dropped: delete collection 3.13, the slotId field on
+     orders, and GET /slots.
+
+  2. ONE BRANCH OR MANY?
+     PickupStore is a list but the app only ever reads the first entry, and
+     no product belongs to a branch. Multi-branch means per-store stock and
+     pricing — a materially larger catalogue schema (a stock document per
+     store/variant pair rather than a field on the variant). Single-branch
+     keeps section 3.2 as written.
+
+  3. Secondary, but decide early: does the CMS admin adopt the endpoint
+     shapes in CMS-SCOPE section 3, or do those change to match what the
+     admin frontend already calls? Whichever side adapts, it is cheaper
+     now than after the routes exist.
+
+
+================================================================================
+11. LATER, NOT FIRST
+================================================================================
+Deliberately out of the first build, so it is clear they were considered
+rather than forgotten:
+
+  - Push notifications (Expo push tokens on customers, fired from the state
+    machine in section 7)
+  - Payment gateway integration — the app currently records a paymentKind
+    and takes no money
+  - Delivery zones and per-zone fees; section 6 uses one flat fee
+  - Real-time tracking (websocket or SSE); the app polls today
+  - Search beyond a Mongo text index — Atlas Search or Meilisearch when
+    catalogue size justifies it
+  - Image processing pipeline; direct-to-storage upload with a CDN URL is
+    enough at first
+
+
+================================================================================
+END
+================================================================================

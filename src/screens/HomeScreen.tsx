@@ -16,6 +16,7 @@ import { defaultFilters, type FilterState, applyFilters } from '../data/filters'
 import { FilterSheet } from './FilterSheet';
 import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
+import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCart } from '../store/CartContext';
 import { useSearchHistory } from '../store/SearchHistoryContext';
@@ -37,6 +38,7 @@ export function HomeScreen() {
   const { addItem } = useCart();
   const { show } = useToast();
   const { history, recordSearch, clearHistory } = useSearchHistory();
+  const tabBarHeight = useGlassTabBarHeight();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>(defaultFilters());
@@ -89,7 +91,7 @@ export function HomeScreen() {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight }]}
         showsVerticalScrollIndicator={false}
         // Without this the first tap after typing is swallowed to dismiss the
         // keyboard and never reaches the search button — you would have to tap

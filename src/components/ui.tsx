@@ -203,15 +203,17 @@ export function EmptyState({
   body,
   actionLabel,
   onAction,
+  style,
 }: {
   icon: IconName;
   title: string;
   body: string;
+  style?: StyleProp<ViewStyle>;
   actionLabel?: string;
   onAction?: () => void;
 }) {
   return (
-    <View style={styles.empty}>
+    <View style={[styles.empty, style]}>
       <View style={styles.emptyIcon}>
         <Icon name={icon} size={40} color={colors.primary} />
       </View>

@@ -8,6 +8,7 @@ import { useToast } from '../components/Toast';
 import { Screen } from '../components/ui';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useLang } from '../hooks/useLang';
+import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useAuth } from '../store/AuthContext';
 import { useOrders } from '../store/OrdersContext';
@@ -23,6 +24,7 @@ export function AccountScreen() {
   const { credit } = useOrders();
   const { show } = useToast();
   const navigation = useNavigation<RootNavigation>();
+  const tabBarHeight = useGlassTabBarHeight();
 
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
 
@@ -88,7 +90,10 @@ export function AccountScreen() {
         <Text style={styles.title}>{t('account.title')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Profile */}
         <FadeSlideIn>
           <PressableScale
