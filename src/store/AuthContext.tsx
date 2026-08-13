@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   useCallback,
@@ -9,17 +8,16 @@ import React, {
 } from 'react';
 
 import { auth, type AuthSession } from '../api/auth';
-
-const SESSION_KEY = '@freshcart/session';
+import { getMe } from '../api/me';
+import { loadPersistedRefreshToken, setTokens, setUnauthorizedHandler, getRefreshToken } from '../api/client';
 
 type AuthContextValue = {
   session: AuthSession | null;
-  /** True until the persisted session has been read — Splash waits on this. */
+  /** True until the persisted session has been restored — Splash waits on this. */
   isRestoring: boolean;
   /** Sends an OTP and returns the challenge id to verify against. */
   requestOtp: (phone: string, channel: 'sms' | 'whatsapp') => Promise<string>;
   verifyOtp: (challengeId: string, code: string) => Promise<void>;
-  signInWithProvider: (provider: 'google' | 'apple') => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -29,16 +27,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
 
-  // Token-based persistence: the customer stays signed in across launches and
-  // never re-verifies unless they sign out.
+  // Cold start: the refresh token lives in SecureStore (§5.5); if one exists,
+  // GET /me either succeeds outright or triggers the client's built-in silent
+  // 401-refresh-and-retry, so no separate "am I still logged in" call is needed.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(SESSION_KEY);
-        if (!cancelled && raw) setSession(JSON.parse(raw) as AuthSession);
+        const token = await loadPersistedRefreshToken();
+        if (!token) return;
+        const customer = await getMe();
+        if (!cancelled) setSession({ customer });
       } catch {
-        // A corrupt session is the same as no session.
+        if (!cancelled) await setTokens(null);
       } finally {
         if (!cancelled) setIsRestoring(false);
       }
@@ -48,9 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const persist = useCallback(async (next: AuthSession) => {
-    setSession(next);
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(next));
+  // A 401 that survives the client's own refresh attempt means the session is
+  // truly gone (revoked family, blocked account) — force back to Login.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setSession(null));
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const requestOtp = useCallback(
@@ -58,28 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const verifyOtp = useCallback(
-    async (challengeId: string, code: string) => {
-      persist(await auth.verifyOtp(challengeId, code));
-    },
-    [persist],
-  );
-
-  const signInWithProvider = useCallback(
-    async (provider: 'google' | 'apple') => {
-      persist(await auth.signInWithProvider(provider));
-    },
-    [persist],
-  );
+  const verifyOtp = useCallback(async (challengeId: string, code: string) => {
+    const result = await auth.verifyOtp(challengeId, code);
+    setSession(result);
+  }, []);
 
   const signOut = useCallback(async () => {
+    const refreshToken = getRefreshToken();
     setSession(null);
-    await AsyncStorage.removeItem(SESSION_KEY);
+    await setTokens(null);
+    if (refreshToken) await auth.logout(refreshToken);
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ session, isRestoring, requestOtp, verifyOtp, signInWithProvider, signOut }),
-    [session, isRestoring, requestOtp, verifyOtp, signInWithProvider, signOut],
+    () => ({ session, isRestoring, requestOtp, verifyOtp, signOut }),
+    [session, isRestoring, requestOtp, verifyOtp, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

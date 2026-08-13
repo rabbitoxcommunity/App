@@ -8,9 +8,11 @@ import React, {
   useState,
 } from 'react';
 
-import { getProduct, getVariant, isPurchasable } from '../data/catalog';
-import { DELIVERY_FEE, PROMO_CODES } from '../data/mock';
+import { toFils } from '../api/client';
+import { getVariant, isPurchasable } from '../data/catalog';
 import type { CartLine, FulfillmentType, Product, ProductVariant } from '../data/types';
+import { useCatalog } from './CatalogContext';
+import { useConfig } from './ConfigContext';
 
 const CART_KEY = '@freshcart/cart';
 
@@ -32,6 +34,7 @@ export type CartTotals = {
 type CartContextValue = {
   lines: ResolvedCartLine[];
   itemCount: number;
+  /** Client-side estimate for instant UI feedback — `cart/price` is the authoritative total at checkout. */
   totals: CartTotals;
   promoCode: string | null;
   /** Curbside pickup waives the delivery fee, so totals depend on it. */
@@ -42,7 +45,7 @@ type CartContextValue = {
   setQuantity: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
   clear: () => void;
-  applyPromo: (code: string) => boolean;
+  applyPromo: (code: string) => Promise<boolean>;
   removePromo: () => void;
 };
 
@@ -51,6 +54,10 @@ const CartContext = createContext<CartContextValue | null>(null);
 const round = (value: number) => Math.round(value * 100) / 100;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { getProduct } = useCatalog();
+  const { config } = useConfig();
+  const deliveryFee = config?.settings.deliveryFee ?? 0;
+
   const [rawLines, setRawLines] = useState<CartLine[]>([]);
   const [promoCode, setPromoCode] = useState<string | null>(null);
   const [fulfillment, setFulfillment] = useState<FulfillmentType>('delivery');
@@ -92,43 +99,49 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         if (!product || !variant) return [];
         return [{ ...line, product, variant, lineTotal: round(variant.price * line.quantity) }];
       }),
-    [rawLines],
+    [rawLines, getProduct],
   );
 
   const totals = useMemo<CartTotals>(() => {
     const subtotal = round(lines.reduce((sum, l) => sum + l.lineTotal, 0));
-    const promo = promoCode ? PROMO_CODES[promoCode] : undefined;
-    const discount = promo ? round((subtotal * promo.percentOff) / 100) : 0;
+    // The exact discount amount only exists once `cart/price` (§8) has priced the
+    // basket server-side — Checkout is where that authoritative number appears.
+    // Showing a guessed figure here would risk quoting the wrong total, so the
+    // pre-checkout estimate simply omits it rather than approximate it.
+    const discount = 0;
     // Curbside pickup has no delivery fee — see the fulfillment rules in the brief.
-    const deliveryFee = lines.length === 0 || fulfillment === 'pickup' ? 0 : DELIVERY_FEE;
+    const fee = lines.length === 0 || fulfillment === 'curbside' ? 0 : deliveryFee;
     return {
       subtotal,
-      deliveryFee,
+      deliveryFee: fee,
       discount,
-      total: round(subtotal - discount + deliveryFee),
+      total: round(subtotal - discount + fee),
       itemCount: lines.reduce((sum, l) => sum + l.quantity, 0),
     };
-  }, [lines, promoCode, fulfillment]);
+  }, [lines, fulfillment, deliveryFee]);
 
   const quantityOf = useCallback(
     (variantId: string) => rawLines.find((l) => l.variantId === variantId)?.quantity ?? 0,
     [rawLines],
   );
 
-  const addItem = useCallback((productId: string, variantId: string, quantity = 1) => {
-    const product = getProduct(productId);
-    const variant = product && getVariant(product, variantId);
-    // Out-of-stock items can never enter the cart, whatever the caller does.
-    if (!product || !variant || !isPurchasable(variant.stock)) return;
+  const addItem = useCallback(
+    (productId: string, variantId: string, quantity = 1) => {
+      const product = getProduct(productId);
+      const variant = product && getVariant(product, variantId);
+      // Out-of-stock items can never enter the cart, whatever the caller does.
+      if (!product || !variant || !isPurchasable(variant.stock)) return;
 
-    setRawLines((prev) => {
-      const existing = prev.find((l) => l.variantId === variantId);
-      if (!existing) return [...prev, { productId, variantId, quantity }];
-      return prev.map((l) =>
-        l.variantId === variantId ? { ...l, quantity: l.quantity + quantity } : l,
-      );
-    });
-  }, []);
+      setRawLines((prev) => {
+        const existing = prev.find((l) => l.variantId === variantId);
+        if (!existing) return [...prev, { productId, variantId, quantity }];
+        return prev.map((l) =>
+          l.variantId === variantId ? { ...l, quantity: l.quantity + quantity } : l,
+        );
+      });
+    },
+    [getProduct],
+  );
 
   const setQuantity = useCallback((variantId: string, quantity: number) => {
     setRawLines((prev) =>
@@ -147,12 +160,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setPromoCode(null);
   }, []);
 
-  const applyPromo = useCallback((code: string) => {
-    const normalized = code.trim().toUpperCase();
-    if (!PROMO_CODES[normalized]) return false;
-    setPromoCode(normalized);
-    return true;
-  }, []);
+  /** A quick client-side check (§8) — `cart/price` re-validates authoritatively at checkout regardless. */
+  const applyPromo = useCallback(
+    async (code: string) => {
+      const normalized = code.trim().toUpperCase();
+      if (!normalized) return false;
+      const subtotal = toFils(lines.reduce((sum, l) => sum + l.lineTotal, 0));
+      const { validatePromo } = await import('../api/promos');
+      const result = await validatePromo(normalized, subtotal).catch(() => ({ applied: false }) as const);
+      if (!result.applied) return false;
+      setPromoCode(normalized);
+      return true;
+    },
+    [lines],
+  );
 
   const removePromo = useCallback(() => setPromoCode(null), []);
 

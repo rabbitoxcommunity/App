@@ -59,10 +59,10 @@ export function CartScreen() {
     });
   };
 
-  const onApplyPromo = () => {
+  const onApplyPromo = async () => {
     const code = promoInput.trim();
     if (!code) return;
-    if (applyPromo(code)) {
+    if (await applyPromo(code)) {
       setPromoInput('');
       show({
         title: t('toast.promoApplied', { code: code.toUpperCase() }),

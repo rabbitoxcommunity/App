@@ -1,16 +1,15 @@
  import { useNavigation } from '@react-navigation/native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { getHome, type Banner } from '../api/home';
 import { CategoryImage } from '../components/CategoryImage';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { ProductCard } from '../components/ProductCard';
 import { Skeleton } from '../components/Skeleton';
-import { useToast } from '../components/Toast';
 import { Screen, IconButton, SectionHeader, TextLink } from '../components/ui';
-import { popularProducts, t as tr } from '../data/catalog';
-import { CATEGORIES, DEFAULT_ADDRESS, LAST_BASKET } from '../data/mock';
+import { t as tr } from '../data/catalog';
 import type { Category } from '../data/types';
 import { defaultFilters, type FilterState, applyFilters } from '../data/filters';
 import { FilterSheet } from './FilterSheet';
@@ -18,33 +17,33 @@ import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
-import { useCart } from '../store/CartContext';
+import { useAddresses } from '../store/AddressesContext';
+import { useCatalog } from '../store/CatalogContext';
 import { useSearchHistory } from '../store/SearchHistoryContext';
 import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
 import { formatAmount, formatShortDate } from '../utils/format';
-
-const POPULAR = popularProducts(8);
-
-const ADS = [
-  { id: '1', image: 'https://picsum.photos/seed/ad1/800/300' },
-  { id: '2', image: 'https://picsum.photos/seed/ad2/800/300' },
-  { id: '3', image: 'https://picsum.photos/seed/ad3/800/300' },
-];
 
 export function HomeScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { addProduct } = useAddToCart();
-  const { addItem } = useCart();
-  const { show } = useToast();
+  const { categories, popularProducts } = useCatalog();
+  const { addresses, primaryId } = useAddresses();
   const { history, recordSearch, clearHistory } = useSearchHistory();
   const tabBarHeight = useGlassTabBarHeight();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>(defaultFilters());
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [activeAdIndex, setActiveAdIndex] = useState(0);
   const [sliderWidth, setSliderWidth] = useState(Dimensions.get('window').width - 52);
+
+  useEffect(() => {
+    getHome()
+      .then((home) => setBanners(home.banners))
+      .catch(() => undefined);
+  }, []);
 
   const onAdScroll = useCallback((event: any) => {
     const slideSize = event.nativeEvent.layoutMeasurement.width;
@@ -52,14 +51,28 @@ export function HomeScreen() {
     setActiveAdIndex(Math.round(index));
   }, []);
 
+  const openBanner = useCallback(
+    (banner: Banner) => {
+      if (banner.linkType === 'category' && banner.linkId) {
+        navigation.navigate('CategoryListing', { categoryId: banner.linkId });
+      } else if (banner.linkType === 'product' && banner.linkId) {
+        navigation.navigate('ProductDetail', { productId: banner.linkId });
+      }
+    },
+    [navigation],
+  );
+
+  const popular = useMemo(() => popularProducts(8), [popularProducts]);
+  const primaryAddress = addresses.find((a) => a.id === primaryId);
+
   const popularFiltered = useMemo(() => {
-    let result = POPULAR;
+    let result = popular;
     if (searchQuery.trim().length > 0) {
       const q = searchQuery.toLowerCase();
       result = result.filter(p => tr(p.name, language).toLowerCase().includes(q));
     }
     return applyFilters(result, filters);
-  }, [searchQuery, language, filters]);
+  }, [popular, searchQuery, language, filters]);
 
   const runSearch = useCallback(() => {
     const query = searchQuery.trim();
@@ -73,20 +86,6 @@ export function HomeScreen() {
       navigation.navigate('CategoryListing', { categoryId: category.id }),
     [navigation],
   );
-
-  const reorder = useCallback(() => {
-    LAST_BASKET.lines.forEach((line) =>
-      addItem(line.productId, line.variantId, line.quantity),
-    );
-    show({
-      title: t('toast.addedToCart'),
-      body: t('home.reorderTitle'),
-      action: {
-        label: t('common.view'),
-        onPress: () => navigation.navigate('Tabs', { screen: 'Cart' }),
-      },
-    });
-  }, [addItem, navigation, show, t]);
 
   return (
     <Screen>
@@ -106,7 +105,7 @@ export function HomeScreen() {
               <Text style={styles.addressLabel}>{t('home.deliverTo')}</Text>
               <View style={styles.addressValueRow}>
                 <Text style={styles.addressValue} numberOfLines={1}>
-                  {tr(DEFAULT_ADDRESS.label, language)}
+                  {primaryAddress ? tr(primaryAddress.label, language) : t('home.noAddress')}
                 </Text>
                 <Icon name="expand" size={18} color={colors.inkMuted} />
               </View>
@@ -189,14 +188,14 @@ export function HomeScreen() {
           onAction={() => navigation.navigate('Tabs', { screen: 'Categories' })}
         />
         <View style={styles.categoryGrid}>
-          {CATEGORIES.map((category, index) => (
+          {categories.map((category, index) => (
             <FadeSlideIn key={category.id} index={index} style={styles.categoryItem}>
               <PressableScale
                 accessibilityRole="button"
                 onPress={() => openCategory(category)}
                 style={styles.categoryPress}
               >
-                <CategoryImage source={category.image} icon={category.icon} />
+                <CategoryImage uri={category.imageUrl} icon={category.icon} />
                 <Text style={styles.categoryLabel} numberOfLines={2}>
                   {tr(category.name, language)}
                 </Text>
@@ -205,37 +204,46 @@ export function HomeScreen() {
           ))}
         </View>
 
-        {/* Supermarket Ads Slider */}
-        <View style={styles.adSection}>
-          <View
-            style={styles.adContainer}
-            onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
-          >
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.adSlider}
-              onScroll={onAdScroll}
-              scrollEventThrottle={16}
+        {/* Merchandising banners (CMS-managed, §4.18) */}
+        {banners.length > 0 && (
+          <View style={styles.adSection}>
+            <View
+              style={styles.adContainer}
+              onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
             >
-              {ADS.map((ad) => (
-                <AdSlide key={ad.id} uri={ad.image} width={sliderWidth} />
-              ))}
-            </ScrollView>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={styles.adSlider}
+                onScroll={onAdScroll}
+                scrollEventThrottle={16}
+              >
+                {banners.map((banner) => (
+                  <AdSlide
+                    key={banner.id}
+                    uri={banner.imageUrl}
+                    width={sliderWidth}
+                    onPress={() => openBanner(banner)}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+            {banners.length > 1 && (
+              <View style={styles.paginationRow}>
+                {banners.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      index === activeAdIndex && styles.paginationDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
           </View>
-          <View style={styles.paginationRow}>
-            {ADS.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.paginationDot,
-                  index === activeAdIndex && styles.paginationDotActive,
-                ]}
-              />
-            ))}
-          </View>
-        </View>
+        )}
 
         {/* Popular rail */}
         <SectionHeader
@@ -265,7 +273,7 @@ export function HomeScreen() {
         visible={sheetOpen}
         filters={filters}
         subcategories={[]}
-        resultCount={(draft) => applyFilters(POPULAR, draft).length}
+        resultCount={(draft) => applyFilters(popular, draft).length}
         onClose={() => setSheetOpen(false)}
         onApply={(next) => {
           setFilters(next);
@@ -277,10 +285,10 @@ export function HomeScreen() {
 }
 
 /** Banners are remote, so each slide holds a placeholder until its image lands. */
-function AdSlide({ uri, width }: { uri: string; width: number }) {
+function AdSlide({ uri, width, onPress }: { uri: string; width: number; onPress: () => void }) {
   const [pending, setPending] = useState(true);
   return (
-    <View style={[styles.adImage, { width }]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.adImage, { width }]}>
       <Image
         source={{ uri }}
         style={styles.adImage}
@@ -288,7 +296,7 @@ function AdSlide({ uri, width }: { uri: string; width: number }) {
         onLoadEnd={() => setPending(false)}
       />
       {pending && <Skeleton style={StyleSheet.absoluteFill} height={undefined} radius={0} />}
-    </View>
+    </Pressable>
   );
 }
 

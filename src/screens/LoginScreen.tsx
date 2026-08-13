@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { OtpError, MOCK_OTP } from '../api/auth';
+import { OtpError } from '../api/auth';
 import { Icon } from '../components/Icon';
 import { Screen, PrimaryButton, TextLink } from '../components/ui';
 import { useToast } from '../components/Toast';
@@ -69,7 +69,7 @@ export function LoginScreen() {
         setChallengeId(id);
         setCode('');
         setSecondsLeft(RESEND_SECONDS);
-        show({ title: t('login.hint', { code: MOCK_OTP }), tone: 'success', icon: 'lock' });
+        show({ title: t('login.codeSent'), tone: 'success', icon: 'lock' });
         // Focus lands on the code boxes as soon as they become live.
         setTimeout(() => otpInput.current?.focus(), 120);
       } catch {

@@ -6,20 +6,22 @@ import { BottomSheet } from '../components/BottomSheet';
 import { SelectRow } from '../components/SelectRow';
 import { PrimaryButton } from '../components/ui';
 import { t as tr } from '../data/catalog';
-import { CAR_COLOURS } from '../data/orders';
+import type { Localized } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 
-export type CarColour = (typeof CAR_COLOURS)[number];
+export type CarColour = { hex: string; name: Localized };
 
-/** The curbside car-colour picker, presented over Checkout. */
+/** The curbside car-colour picker, presented over Checkout. Colours are the tenant's own list (§10 GET /config). */
 export function CarColourSheet({
   visible,
+  colours,
   selectedHex,
   onClose,
   onConfirm,
 }: {
   visible: boolean;
+  colours: CarColour[];
   selectedHex: string;
   onClose: () => void;
   onConfirm: (colour: CarColour) => void;
@@ -33,7 +35,7 @@ export function CarColourSheet({
     if (visible) setDraftHex(selectedHex);
   }, [visible, selectedHex]);
 
-  const draft = CAR_COLOURS.find((c) => c.hex === draftHex) ?? CAR_COLOURS[0];
+  const draft = colours.find((c) => c.hex === draftHex) ?? colours[0];
 
   return (
     <BottomSheet
@@ -47,17 +49,22 @@ export function CarColourSheet({
       }
       footer={
         <View style={[styles.footer, { paddingBottom: insets.bottom + spacing['2xl'] }]}>
-          <PrimaryButton label={t('common.apply')} onPress={() => onConfirm(draft)} height={56} />
+          <PrimaryButton
+            label={t('common.apply')}
+            disabled={!draft}
+            onPress={() => draft && onConfirm(draft)}
+            height={56}
+          />
         </View>
       }
     >
       {/* A ScrollView, not a View: the palette is longer than the sheet body's
           capped height, and the body clips rather than scrolls on its own. */}
       <ScrollView contentContainerStyle={styles.options} showsVerticalScrollIndicator={false}>
-        {CAR_COLOURS.map((colour) => (
+        {colours.map((colour) => (
           <SelectRow
             key={colour.hex}
-            selected={colour.hex === draft.hex}
+            selected={colour.hex === draft?.hex}
             onPress={() => setDraftHex(colour.hex)}
             leading={<View style={[styles.swatch, { backgroundColor: colour.hex }]} />}
             title={tr(colour.name, language)}

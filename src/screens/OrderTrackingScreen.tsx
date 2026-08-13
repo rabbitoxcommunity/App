@@ -12,16 +12,14 @@ import {
 import { useToast } from '../components/Toast';
 import { AppHeader, EmptyState, PrimaryButton, Screen } from '../components/ui';
 import { t as tr } from '../data/catalog';
-import { PICKUP_STORES } from '../data/orders';
 import { flowFor, type Order, type OrderStatus } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { useConfig } from '../store/ConfigContext';
 import { useOrders } from '../store/OrdersContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OrderTracking'>;
-
-const CURBSIDE_BAY = 3;
 
 /** Milestone glyphs, per flow. */
 const STATUS_ICON: Record<OrderStatus, IconName> = {
@@ -80,8 +78,9 @@ function TrackingBody({
   show: ReturnType<typeof useToast>['show'];
 }) {
   const { t, language } = useLang();
-  const isCurbside = order.fulfillment === 'pickup';
-  const store = PICKUP_STORES.find((s) => s.id === order.storeId) ?? PICKUP_STORES[0];
+  const { config } = useConfig();
+  const isCurbside = order.fulfillment === 'curbside';
+  const store = config?.store;
 
   const flow = useMemo(() => flowFor(order.fulfillment), [order.fulfillment]);
   const currentIndex = flow.indexOf(order.status);
@@ -107,6 +106,8 @@ function TrackingBody({
   };
 
   const canSayArrived = isCurbside && order.status === 'ready_for_pickup';
+  const bayHint =
+    order.bay != null ? t('tracking.arrivedHint', { bay: order.bay }) : t('tracking.arrivedHintNoBay');
 
   return (
     <Screen>
@@ -138,7 +139,7 @@ function TrackingBody({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Rider (delivery) or store (curbside) */}
         <FadeSlideIn>
-          {isCurbside ? (
+          {isCurbside && store ? (
             <View style={styles.partyCard}>
               <View style={styles.storeAvatar}>
                 <Icon name="storefront" size={24} color={colors.primary} />
@@ -148,7 +149,7 @@ function TrackingBody({
                 <Text style={styles.partyNote}>{tr(store.details, language)}</Text>
               </View>
             </View>
-          ) : (
+          ) : !isCurbside ? (
             order.rider && (
               <View style={styles.partyCard}>
                 <View style={styles.riderAvatar}>
@@ -174,7 +175,7 @@ function TrackingBody({
                 </PressableScale>
               </View>
             )
-          )}
+          ) : null}
         </FadeSlideIn>
 
         {/* Confirmation code */}
@@ -209,15 +210,13 @@ function TrackingBody({
                   onArrived(order.id);
                   show({
                     title: t('tracking.status.customer_arrived'),
-                    body: t('tracking.arrivedHint', { bay: CURBSIDE_BAY }),
+                    body: bayHint,
                     tone: 'success',
                     icon: 'parking',
                   });
                 }}
               />
-              <Text style={styles.arrivedHint}>
-                {t('tracking.arrivedHint', { bay: CURBSIDE_BAY })}
-              </Text>
+              <Text style={styles.arrivedHint}>{bayHint}</Text>
             </View>
           </FadeSlideIn>
         )}

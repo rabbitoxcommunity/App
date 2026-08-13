@@ -1,19 +1,12 @@
 /**
- * Pure selectors over the catalogue. Everything the screens need to derive from
- * a product lives here so the same logic applies to mock data today and to API
- * data later.
+ * Pure selectors over a product/variant — everything a screen needs to derive
+ * that doesn't require the catalogue itself. Fetching and caching the
+ * catalogue live in `store/CatalogContext`.
  */
 import type { Language } from '../i18n';
-import { CATEGORIES, PRODUCTS } from './mock';
-import type { Category, Localized, Product, ProductVariant, StockStatus } from './types';
+import type { Localized, Product, ProductVariant, StockStatus } from './types';
 
 export const t = (text: Localized, language: Language): string => text[language] ?? text.en;
-
-export const getProduct = (id: string): Product | undefined =>
-  PRODUCTS.find((p) => p.id === id);
-
-export const getCategory = (id: string): Category | undefined =>
-  CATEGORIES.find((c) => c.id === id);
 
 export const getVariant = (
   product: Product,
@@ -115,10 +108,3 @@ export function variantLabel(
     .join(' · ');
 }
 
-export function productsInCategory(categoryId: string): Product[] {
-  return PRODUCTS.filter((p) => p.categoryId === categoryId);
-}
-
-export function popularProducts(limit = 8): Product[] {
-  return [...PRODUCTS].sort((a, b) => b.popularity - a.popularity).slice(0, limit);
-}

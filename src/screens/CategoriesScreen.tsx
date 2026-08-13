@@ -1,52 +1,33 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
-import {
-  Dimensions,
-  FlatList,
-  Image,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Dimensions, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import { CategoryImage } from '../components/CategoryImage';
 import { Screen, IconButton } from '../components/ui';
-import { productsInCategory, t as tr } from '../data/catalog';
-import { CATEGORIES } from '../data/mock';
+import { t as tr } from '../data/catalog';
 import { useLang } from '../hooks/useLang';
 import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
+import { useCatalog } from '../store/CatalogContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 
-/**
- * The "Categories" tab: the full aisle list. Item counts come from the mock
- * catalogue so they stay honest as products are added.
- */
+/** The "Categories" tab: the full aisle list, with a live product count per tile. */
 export function CategoriesScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const tabBarHeight = useGlassTabBarHeight();
+  const { categories, productsInCategory, reload } = useCatalog();
 
-  /**
-   * Held in state rather than read straight from the module so pull-to-refresh
-   * has something to re-read. Today that source is `mock.ts`; when the
-   * catalogue moves behind `src/api`, only `onRefresh` changes.
-   */
-  const [categories, setCategories] = useState(CATEGORIES);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // The floor keeps the spinner on screen long enough to read; without it a
-      // synchronous re-read kills it inside a frame and the pull looks broken.
-      await new Promise((r) => setTimeout(r, 450));
-      setCategories([...CATEGORIES]);
+      await reload();
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [reload]);
 
   return (
     <Screen>
@@ -84,7 +65,7 @@ export function CategoriesScreen() {
               style={({ pressed }) => [styles.card, pressed && styles.pressed]}
             >
               <View style={styles.imageContainer}>
-                <Image source={item.image} style={styles.cardImage} resizeMode="cover" />
+                <CategoryImage uri={item.imageUrl} icon={item.icon} radius={0} style={styles.cardImage} />
               </View>
               <Text style={styles.name} numberOfLines={2}>
                 {tr(item.name, language)}

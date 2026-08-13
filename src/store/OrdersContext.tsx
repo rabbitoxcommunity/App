@@ -1,33 +1,43 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import { io, type Socket } from 'socket.io-client';
 
-import { ACTIVE_ORDER, CREDIT_ACCOUNT, PAST_ORDERS } from '../data/orders';
-import {
-  flowFor,
-  type CreditAccount,
-  type CreditEntry,
-  type FulfillmentType,
-  type Order,
-  type OrderStatus,
-  type PaymentMethodKind,
-} from '../data/types';
-
-const ORDERS_KEY = '@freshcart/orders';
-
-/** Simulated progression while an order is live, so tracking visibly moves. */
-const STEP_INTERVAL_MS = 18000;
-
-export type PlaceOrderInput = Omit<
+import * as ordersApi from '../api/orders';
+import { mapOrder, type RawOrder } from '../api/orders';
+import { priceCart } from '../api/cart';
+import { getCreditAccount } from '../api/credit';
+import { getAccessToken, idempotencyKey, SOCKET_BASE_URL, TENANT_ID } from '../api/client';
+import type {
+  CarProfile,
+  CreditAccount,
+  FulfillmentType,
   Order,
-  'id' | 'reference' | 'status' | 'placedAt' | 'events' | 'confirmationCode'
->;
+  PaymentMethodKind,
+} from '../data/types';
+import { useAuth } from './AuthContext';
+
+const isFinished = (order: Order) =>
+  order.status === 'delivered' || order.status === 'handed_over' || order.status === 'cancelled';
+
+const EMPTY_CREDIT: CreditAccount = { limit: 0, balance: 0, dueDate: new Date().toISOString(), entries: [] };
+
+export type PlaceOrderInput = {
+  lines: Array<{ variantId: string; quantity: number }>;
+  promoCode?: string | null;
+  fulfillment: FulfillmentType;
+  addressId?: string;
+  paymentKind: PaymentMethodKind;
+  car?: CarProfile;
+  /** Curbside only — sent as a follow-up `PATCH /orders/:id/arrival` right after creation. */
+  arrival?: 'on_way' | 'near';
+};
 
 type OrdersContextValue = {
   orders: Order[];
@@ -35,186 +45,148 @@ type OrdersContextValue = {
   activeOrder: Order | null;
   pastOrders: Order[];
   credit: CreditAccount;
-  /** True until the persisted store has been read — screens show skeletons. */
+  /** True until the first load of orders/credit has completed. */
   isLoading: boolean;
   getOrder: (id: string) => Order | undefined;
-  /**
-   * Re-reads the persisted store. Pull-to-refresh calls this; when orders move
-   * behind an API it is the one place that becomes a refetch.
-   */
   refresh: () => Promise<void>;
-  placeOrder: (input: PlaceOrderInput) => Order;
+  placeOrder: (input: PlaceOrderInput) => Promise<Order>;
   /** Curbside: the customer tells the store they have parked. */
-  markArrived: (orderId: string) => void;
-  advance: (orderId: string) => void;
-  payCredit: (amount: number) => void;
+  markArrived: (orderId: string) => Promise<void>;
+  /** Curbside: "on my way" / "near the shop", ahead of arriving. */
+  setArrival: (orderId: string, arrival: 'on_way' | 'near') => Promise<void>;
+  cancelOrder: (orderId: string, reason: string) => Promise<void>;
 };
 
 const OrdersContext = createContext<OrdersContextValue | null>(null);
 
-const isFinished = (order: Order) =>
-  order.status === 'delivered' ||
-  order.status === 'handed_over' ||
-  order.status === 'cancelled';
-
-const round = (value: number) => Math.round(value * 100) / 100;
-
-function nextStatus(order: Order): OrderStatus | null {
-  const flow = flowFor(order.fulfillment);
-  const index = flow.indexOf(order.status);
-  if (index < 0 || index === flow.length - 1) return null;
-  return flow[index + 1];
-}
-
-const randomCode = () => String(Math.floor(1000 + Math.random() * 9000));
-
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
-  const [orders, setOrders] = useState<Order[]>([ACTIVE_ORDER, ...PAST_ORDERS]);
-  const [credit, setCredit] = useState<CreditAccount>(CREDIT_ACCOUNT);
-  const [hydrated, setHydrated] = useState(false);
+  const { session } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [credit, setCredit] = useState<CreditAccount>(EMPTY_CREDIT);
+  const [isLoading, setIsLoading] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
 
   const load = useCallback(async () => {
+    if (!session) return;
+    setIsLoading(true);
     try {
-      const raw = await AsyncStorage.getItem(ORDERS_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as { orders: Order[]; credit: CreditAccount };
-        // Guarded: an empty or corrupt cache must not wipe what is on screen.
-        if (saved.orders?.length) setOrders(saved.orders);
-        if (saved.credit) setCredit(saved.credit);
-      }
-    } catch {
-      // A corrupt cache falls back to the seeded mock data.
+      const [list, account] = await Promise.all([
+        ordersApi.listOrders(),
+        getCreditAccount().catch(() => EMPTY_CREDIT),
+      ]);
+      setOrders(list);
+      setCredit(account);
+    } finally {
+      setIsLoading(false);
     }
+  }, [session]);
+
+  useEffect(() => {
+    if (session) load();
+    else {
+      setOrders([]);
+      setCredit(EMPTY_CREDIT);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  const mergeOrder = useCallback((raw: RawOrder) => {
+    const order = mapOrder(raw);
+    setOrders((prev) => {
+      const exists = prev.some((o) => o.id === order.id);
+      return exists ? prev.map((o) => (o.id === order.id ? order : o)) : [order, ...prev];
+    });
   }, []);
 
+  // §14 — sockets carry notifications, never authority: a missed event is fine,
+  // because `load()` above already established the real state, and the next
+  // pull-to-refresh re-syncs regardless.
   useEffect(() => {
-    (async () => {
-      await load();
-      setHydrated(true);
-    })();
-  }, [load]);
+    if (!session || !TENANT_ID) return;
+    const token = getAccessToken();
+    if (!token) return;
 
-  useEffect(() => {
-    if (!hydrated) return;
-    AsyncStorage.setItem(ORDERS_KEY, JSON.stringify({ orders, credit })).catch(
-      () => undefined,
-    );
-  }, [orders, credit, hydrated]);
+    const socket = io(`${SOCKET_BASE_URL}/t/${TENANT_ID}`, {
+      auth: { token },
+      transports: ['websocket'],
+    });
+    socketRef.current = socket;
+
+    socket.on('order.status', (raw: RawOrder) => mergeOrder(raw));
+    socket.on('order.arrival', (raw: RawOrder) => mergeOrder(raw));
+    socket.on('order.assigned', (raw: RawOrder) => mergeOrder(raw));
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [session, mergeOrder]);
 
   const activeOrder = useMemo(() => orders.find((o) => !isFinished(o)) ?? null, [orders]);
   const pastOrders = useMemo(() => orders.filter(isFinished), [orders]);
 
+  // The active order is the one screen a customer watches live; joining its
+  // room is what makes the events above actually arrive (§14 — rooms are opt-in).
+  useEffect(() => {
+    const socket = socketRef.current;
+    const id = activeOrder?.id;
+    if (!socket || !id) return;
+    socket.emit('order:watch', id);
+    return () => {
+      socket.emit('order:unwatch', id);
+    };
+  }, [activeOrder?.id]);
+
   const getOrder = useCallback((id: string) => orders.find((o) => o.id === id), [orders]);
 
-  const advance = useCallback((orderId: string) => {
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id !== orderId) return order;
-        const next = nextStatus(order);
-        // Curbside waits on the customer: the store cannot hand over an order
-        // until they have said they arrived.
-        if (!next || (order.fulfillment === 'pickup' && next === 'handed_over')) return order;
-        return {
-          ...order,
-          status: next,
-          events: [...order.events, { status: next, at: new Date().toISOString() }],
-        };
-      }),
+  const placeOrder = useCallback(async (input: PlaceOrderInput): Promise<Order> => {
+    const priced = await priceCart({
+      lines: input.lines,
+      promoCode: input.promoCode ?? undefined,
+      fulfillment: input.fulfillment,
+      addressId: input.addressId,
+    });
+
+    const order = await ordersApi.placeOrder(
+      {
+        lines: input.lines,
+        promoCode: input.promoCode ?? undefined,
+        fulfillment: input.fulfillment,
+        addressId: input.addressId,
+        priceToken: priced.priceToken,
+        paymentKind: input.paymentKind,
+        car: input.car,
+      },
+      idempotencyKey(),
     );
-  }, []);
 
-  const markArrived = useCallback((orderId: string) => {
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id !== orderId || order.fulfillment !== 'pickup') return order;
-        if (order.status !== 'ready_for_pickup') return order;
-        return {
-          ...order,
-          status: 'customer_arrived',
-          events: [
-            ...order.events,
-            { status: 'customer_arrived', at: new Date().toISOString() },
-          ],
-        };
-      }),
-    );
-  }, []);
-
-  // Nudge the live order along so the tracking screen is not static in the demo.
-  useEffect(() => {
-    if (!activeOrder) return;
-    const next = nextStatus(activeOrder);
-    if (!next) return;
-    if (activeOrder.fulfillment === 'pickup' && next === 'handed_over') return;
-
-    const id = setTimeout(() => advance(activeOrder.id), STEP_INTERVAL_MS);
-    return () => clearTimeout(id);
-  }, [activeOrder, advance]);
-
-  const placeOrder = useCallback((input: PlaceOrderInput) => {
-    const now = new Date();
-    const order: Order = {
-      ...input,
-      id: `ord-${now.getTime()}`,
-      reference: `FC-${2841 + Math.floor(Math.random() * 900)}`,
-      status: 'placed',
-      placedAt: now.toISOString(),
-      confirmationCode: randomCode(),
-      events: [{ status: 'placed', at: now.toISOString() }],
-    };
-
-    setOrders((prev) => [order, ...prev]);
-
-    // A credit order immediately shows up on the tab — same ledger the shop
-    // owner reads, so it must be written the moment the order exists.
-    if (order.paymentKind === 'credit') {
-      const entry: CreditEntry = {
-        id: `cr-${order.id}`,
-        kind: 'purchase',
-        title: { en: `Order #${order.reference}`, ar: `الطلب ${order.reference}` },
-        subtitle: {
-          en: `${order.lines.length} items`,
-          ar: `${order.lines.length} منتجات`,
-        },
-        amount: order.total,
-        settled: false,
-        at: order.placedAt,
-      };
-      setCredit((prev) => ({
-        ...prev,
-        balance: round(prev.balance + order.total),
-        entries: [entry, ...prev.entries],
-      }));
+    let finalOrder = order;
+    if (input.fulfillment === 'curbside' && input.arrival) {
+      finalOrder = await ordersApi.setArrival(order.id, input.arrival);
     }
 
-    return order;
+    setOrders((prev) => [finalOrder, ...prev]);
+    if (finalOrder.paymentKind === 'credit') {
+      getCreditAccount()
+        .then(setCredit)
+        .catch(() => undefined);
+    }
+    return finalOrder;
   }, []);
 
-  const payCredit = useCallback((amount: number) => {
-    setCredit((prev) => {
-      const paid = Math.min(amount, prev.balance);
-      if (paid <= 0) return prev;
-      const entry: CreditEntry = {
-        id: `cr-pay-${Date.now()}`,
-        kind: 'payment',
-        title: { en: 'Payment received', ar: 'تم استلام دفعة' },
-        subtitle: { en: 'Card •••• 4218', ar: 'بطاقة •••• 4218' },
-        amount: -paid,
-        settled: true,
-        at: new Date().toISOString(),
-      };
-      return {
-        ...prev,
-        balance: round(prev.balance - paid),
-        // Clearing the balance settles the outstanding purchases too.
-        entries: [
-          entry,
-          ...prev.entries.map((e) =>
-            prev.balance - paid <= 0 ? { ...e, settled: true } : e,
-          ),
-        ],
-      };
-    });
+  const markArrived = useCallback(async (orderId: string) => {
+    const order = await ordersApi.markArrived(orderId);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? order : o)));
+  }, []);
+
+  const setArrival = useCallback(async (orderId: string, arrival: 'on_way' | 'near') => {
+    const order = await ordersApi.setArrival(orderId, arrival);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? order : o)));
+  }, []);
+
+  const cancelOrder = useCallback(async (orderId: string, reason: string) => {
+    const order = await ordersApi.cancelOrder(orderId, reason);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? order : o)));
   }, []);
 
   const value = useMemo<OrdersContextValue>(
@@ -223,27 +195,15 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       activeOrder,
       pastOrders,
       credit,
-      isLoading: !hydrated,
+      isLoading,
       getOrder,
       refresh: load,
       placeOrder,
       markArrived,
-      advance,
-      payCredit,
+      setArrival,
+      cancelOrder,
     }),
-    [
-      orders,
-      activeOrder,
-      pastOrders,
-      credit,
-      hydrated,
-      getOrder,
-      load,
-      placeOrder,
-      markArrived,
-      advance,
-      payCredit,
-    ],
+    [orders, activeOrder, pastOrders, credit, isLoading, getOrder, load, placeOrder, markArrived, setArrival, cancelOrder],
   );
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;
@@ -257,6 +217,6 @@ export function useOrders(): OrdersContextValue {
 
 /** Credit headroom, used by checkout to decide whether Pay Later is offerable. */
 export const availableCredit = (credit: CreditAccount): number =>
-  round(Math.max(0, credit.limit - credit.balance));
+  Math.round(Math.max(0, credit.limit - credit.balance) * 100) / 100;
 
 export type { PaymentMethodKind, FulfillmentType };

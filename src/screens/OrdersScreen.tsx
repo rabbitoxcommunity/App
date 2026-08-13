@@ -180,7 +180,7 @@ export function OrdersScreen() {
                           : live
                             ? t('orders.inProgress')
                             : t(
-                              order.fulfillment === 'pickup'
+                              order.fulfillment === 'curbside'
                                 ? 'orders.handedOver'
                                 : 'orders.delivered',
                             )}

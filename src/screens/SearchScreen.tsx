@@ -3,18 +3,19 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { requestStockNotification } from '../api/notifications';
 import { CartPeekBar } from '../components/CartPeekBar';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn } from '../components/motion';
 import { ProductRow } from '../components/ProductRow';
 import { useToast } from '../components/Toast';
 import { EmptyState, IconButton, Screen } from '../components/ui';
-import { t as tr } from '../data/catalog';
+import { defaultVariant, t as tr } from '../data/catalog';
 import { applyFilters, defaultFilters, type FilterState } from '../data/filters';
-import { PRODUCTS } from '../data/mock';
 import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { useCatalog } from '../store/CatalogContext';
 import { useSearchHistory } from '../store/SearchHistoryContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { FilterSheet } from './FilterSheet';
@@ -28,19 +29,20 @@ export function SearchScreen({ route, navigation }: Props) {
   const { addProduct } = useAddToCart();
   const { show } = useToast();
   const { recordSearch } = useSearchHistory();
+  const { products: catalogProducts } = useCatalog();
 
   const [searchQuery, setSearchQuery] = useState(query);
   const [filters, setFilters] = useState<FilterState>(defaultFilters());
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const searchedProducts = useMemo(() => {
-    let result = PRODUCTS;
+    let result = catalogProducts;
     if (searchQuery.trim().length > 0) {
       const q = searchQuery.toLowerCase();
       result = result.filter((p) => tr(p.name, language).toLowerCase().includes(q));
     }
     return result;
-  }, [searchQuery, language]);
+  }, [catalogProducts, searchQuery, language]);
 
   const products = useMemo(() => applyFilters(searchedProducts, filters), [searchedProducts, filters]);
 
@@ -82,14 +84,15 @@ export function SearchScreen({ route, navigation }: Props) {
               product={item}
               onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
               onAdd={() => addProduct(item)}
-              onNotify={() =>
+              onNotify={() => {
+                requestStockNotification(defaultVariant(item).id).catch(() => undefined);
                 show({
                   title: t('stock.notifyMe'),
                   body: tr(item.name, language),
                   tone: 'success',
                   icon: 'notifications',
-                })
-              }
+                });
+              }}
             />
           </FadeSlideIn>
         )}

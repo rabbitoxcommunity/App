@@ -1,33 +1,24 @@
 import React, { useState } from 'react';
-import {
-  Image,
-  ImageSourcePropType,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { colors, radii } from '../theme';
 import { Icon, type IconName } from './Icon';
 
 /**
  * The category tile artwork. The design draws a green glyph on a `#EDF8E7`
- * square; the app ships real photography instead, filling the same square so the
- * tile geometry (1:1, 20px corners) still matches the design.
- *
- * The glyph stays as the fallback: if the photo fails to decode the tile falls
- * back to the design's original treatment rather than rendering an empty box.
+ * square; when the shop has uploaded a photo (CMS-managed `imageUrl`) it fills
+ * the same square so the tile geometry (1:1, 20px corners) still matches the
+ * design. Falls back to the glyph both when there's no photo yet and if a
+ * photo URL fails to decode.
  */
 export function CategoryImage({
-  source,
+  uri,
   icon,
   size,
   radius = radii['3xl'],
   style,
 }: {
-  source: ImageSourcePropType;
-  /** Drawn only if `source` fails to load. */
+  uri?: string;
   icon: IconName;
   /** Square side length; omit to fill the parent. */
   size?: number;
@@ -43,11 +34,11 @@ export function CategoryImage({
 
   return (
     <View style={[styles.base, box, style]}>
-      {failed ? (
+      {!uri || failed ? (
         <Icon name={icon} size={size ? Math.round(size * 0.42) : 30} color={colors.primary} />
       ) : (
         <Image
-          source={source}
+          source={{ uri }}
           style={styles.image}
           resizeMode="cover"
           onError={() => setFailed(true)}

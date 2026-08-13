@@ -12,7 +12,6 @@ import { IconButton, PrimaryButton, Screen } from '../components/ui';
 import {
   defaultVariant,
   findVariantByOptions,
-  getProduct,
   hasVariants,
   isPurchasable,
   optionPrice,
@@ -20,10 +19,11 @@ import {
   t as tr,
   variantLabel,
 } from '../data/catalog';
-import { DELIVERY_ETA_MINUTES } from '../data/mock';
 import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { useCatalog } from '../store/CatalogContext';
+import { useConfig } from '../store/ConfigContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
 import { ImpactStyle, withTap } from '../utils/haptics';
@@ -35,6 +35,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const { addVariant } = useAddToCart();
+  const { getProduct } = useCatalog();
+  const { config } = useConfig();
+  const deliveryEtaMinutes = config?.settings.deliveryEtaMinutes ?? 30;
 
   const screenWidth = Dimensions.get('window').width;
   // Size so that 3 full items fit, and the 4th peeks out to hint at scrolling
@@ -267,7 +270,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
           <View style={styles.etaPill}>
             <Icon name="schedule" size={14} color={colors.primaryDark} />
             <Text style={styles.etaLabel}>
-              {t('product.etaMinutes', { minutes: DELIVERY_ETA_MINUTES })}
+              {t('product.etaMinutes', { minutes: deliveryEtaMinutes })}
             </Text>
           </View>
         </View>

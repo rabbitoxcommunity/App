@@ -1,9 +1,9 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { DELIVERY_ETA_MINUTES } from '../data/mock';
 import { useLang } from '../hooks/useLang';
 import { useCart } from '../store/CartContext';
+import { useConfig } from '../store/ConfigContext';
 import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
 import { formatAmount } from '../utils/format';
 import { Icon } from './Icon';
@@ -16,6 +16,8 @@ import { ImpactStyle, withTap } from '../utils/haptics';
 export function CartPeekBar({ onPress, bottom }: { onPress: () => void; bottom: number }) {
   const { t } = useLang();
   const { totals } = useCart();
+  const { config } = useConfig();
+  const deliveryEtaMinutes = config?.settings.deliveryEtaMinutes ?? 30;
 
   if (totals.itemCount === 0) return null;
 
@@ -35,7 +37,7 @@ export function CartPeekBar({ onPress, bottom }: { onPress: () => void; bottom: 
             })}
           </Text>
           <Text style={styles.eta} numberOfLines={1}>
-            {t('listing.deliveryEta', { minutes: DELIVERY_ETA_MINUTES })}
+            {t('listing.deliveryEta', { minutes: deliveryEtaMinutes })}
           </Text>
         </View>
         <View style={styles.cta}>

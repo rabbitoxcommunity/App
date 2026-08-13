@@ -3,20 +3,20 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ApiError } from '../api/client';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { SelectRow } from '../components/SelectRow';
 import { useToast } from '../components/Toast';
 import { AppHeader, Screen, TextLink } from '../components/ui';
-import { t as tr, variantLabel } from '../data/catalog';
-import { DELIVERY_ETA_MINUTES } from '../data/mock';
-import { DEFAULT_CAR, PAYMENT_METHODS, PICKUP_STORES } from '../data/orders';
-import type { Address, CarProfile, FulfillmentType, PaymentMethodKind } from '../data/types';
+import { t as tr } from '../data/catalog';
+import type { Address, CarProfile, FulfillmentType } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { type AddressDraft, useAddresses } from '../store/AddressesContext';
 import { useAuth } from '../store/AuthContext';
 import { useCart } from '../store/CartContext';
+import { useConfig } from '../store/ConfigContext';
 import { availableCredit, useOrders } from '../store/OrdersContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
@@ -25,8 +25,6 @@ import { AddressSheet } from './AddressSheet';
 import { CarColourSheet } from './CarColourSheet';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
-
-const CURBSIDE_BAY = 3;
 
 /** Paired with their labels here so adding a body type is a one-line change. */
 const BODY_TYPES = [
@@ -43,6 +41,7 @@ export function CheckoutScreen({ navigation }: Props) {
   const { session } = useAuth();
   const { lines, totals, promoCode, fulfillment, setFulfillment, clear } = useCart();
   const { placeOrder, credit } = useOrders();
+  const { config, paymentMethods: allPaymentMethods } = useConfig();
 
   const { addresses, addAddress, updateAddress, setPrimary } = useAddresses();
 
@@ -60,11 +59,17 @@ export function CheckoutScreen({ navigation }: Props) {
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);
   /** Curbside only: how close the customer already is when they order. */
   const [arrival, setArrival] = useState<'on_way' | 'near'>('on_way');
+  const carColours = config?.settings.carColours ?? [];
   // The plate starts empty — it is the one field only the customer can fill in,
   // so seeding it would pass a placeholder off as an entered value.
-  const [car, setCar] = useState<CarProfile>({ ...DEFAULT_CAR, plate: '' });
+  const [car, setCar] = useState<CarProfile>({
+    plate: '',
+    colour: carColours[0]?.name ?? { en: '', ar: '' },
+    colourHex: carColours[0]?.hex ?? '#14181C',
+    bodyType: 'sedan',
+  });
   const [colourSheetOpen, setColourSheetOpen] = useState(false);
-  const [paymentId, setPaymentId] = useState('pay-card');
+  const [paymentId, setPaymentId] = useState('');
   const [placing, setPlacing] = useState(false);
 
   const openAddAddress = () => {
@@ -77,85 +82,74 @@ export function CheckoutScreen({ navigation }: Props) {
     setAddressSheetOpen(true);
   };
 
-  const saveAddress = (draft: AddressDraft) => {
+  const saveAddress = async (draft: AddressDraft) => {
     if (editing) {
-      updateAddress(editing.id, draft);
+      await updateAddress(editing.id, draft);
       show({ title: t('address.updated'), tone: 'success', icon: 'check-circle' });
     } else {
       // A freshly added address is what the customer wants to ship to.
-      const created = addAddress(draft);
+      const created = await addAddress(draft);
       setAddressId(created.id);
       show({ title: t('address.added'), tone: 'success', icon: 'check-circle' });
     }
     setAddressSheetOpen(false);
   };
 
-  const store = PICKUP_STORES[0];
-  const isCurbside = fulfillment === 'pickup';
+  const isCurbside = fulfillment === 'curbside';
   const creditApproved = !!session?.customer.creditApproved;
   const headroom = availableCredit(credit);
 
-  /** Pay Later is only offered to approved customers with enough headroom. */
+  /** Pay Later is only offered to approved customers with enough headroom; a method must also be available for the chosen fulfillment. */
   const paymentMethods = useMemo(
     () =>
-      PAYMENT_METHODS.filter((m) => !m.requiresCreditApproval || creditApproved).map((m) => ({
-        ...m,
-        disabled: m.kind === 'credit' && headroom < totals.total,
-      })),
-    [creditApproved, headroom, totals.total],
+      allPaymentMethods
+        .filter((m) => !m.requiresCreditApproval || creditApproved)
+        .map((m) => ({
+          ...m,
+          disabled: m.kind === 'credit' && headroom < totals.total,
+        })),
+    [allPaymentMethods, creditApproved, headroom, totals.total],
   );
 
   const payment = paymentMethods.find((m) => m.id === paymentId) ?? paymentMethods[0];
 
-  /**
-   * Curbside never carries a delivery fee. Home delivery is always ASAP — it no
-   * longer offers a time picker — so it always pays the flat fee.
-   */
+  /** Curbside never carries a delivery fee. Home delivery is always ASAP — it no longer offers a time picker — so it always pays the flat fee shown in the estimate. */
   const deliveryFee = isCurbside ? 0 : totals.deliveryFee;
-  const total =Math.round((totals.subtotal - totals.discount + deliveryFee) * 100) / 100;
+  // A client-side estimate only — `cart/price` inside `placeOrder` computes the
+  // authoritative total the customer is actually charged (§8).
+  const total = Math.round((totals.subtotal - totals.discount + deliveryFee) * 100) / 100;
 
-  const place = () => {
-    if (placing || lines.length === 0) return;
+  const place = async () => {
+    if (placing || lines.length === 0 || !payment) return;
     setPlacing(true);
     show({ title: t('toast.placingOrder'), tone: 'loading', variant: 'hud' });
 
-    // Stands in for POST /orders.
-    setTimeout(() => {
-      const order = placeOrder({
+    try {
+      const order = await placeOrder({
         fulfillment,
-        lines: lines.map((line) => ({
-          productId: line.productId,
-          variantId: line.variantId,
-          quantity: line.quantity,
-          unitPrice: line.variant.price,
-          name: line.product.name,
-          // Record the SKU that was actually bought, not the parent's pack size.
-          variantLabel: {
-            en: variantLabel(line.product, line.variant, 'en'),
-            ar: variantLabel(line.product, line.variant, 'ar'),
-          },
-          icon: line.product.icon,
-        })),
-        subtotal: totals.subtotal,
-        deliveryFee,
-        discount: totals.discount,
-        total,
-        paymentKind: (payment?.kind ?? 'card') as PaymentMethodKind,
+        lines: lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity })),
+        promoCode: promoCode ?? undefined,
         addressId: isCurbside ? undefined : addressId,
-        storeId: isCurbside ? store.id : undefined,
-        rider: isCurbside
-          ? undefined
-          : { name: { en: 'Adnan', ar: 'عدنان' }, etaMinutes: DELIVERY_ETA_MINUTES },
-        estimatedAt: new Date(Date.now() + DELIVERY_ETA_MINUTES * 60000).toISOString(),
+        paymentKind: payment.kind,
+        car: isCurbside ? car : undefined,
+        arrival: isCurbside ? arrival : undefined,
       });
 
       clear();
-      setPlacing(false);
+      hide();
       // The confirmation screen carries the success message now, so a toast on
       // top of it would say the same thing twice.
-      hide();
       navigation.replace('OrderPlaced', { orderId: order.id });
-    }, 1200);
+    } catch (e) {
+      hide();
+      show({
+        title: e instanceof ApiError ? e.message : t('toast.offlineTitle'),
+        tone: 'danger',
+        icon: 'error',
+      });
+    } finally {
+      setPlacing(false);
+    }
   };
 
   const fulfillmentTab = (type: FulfillmentType, icon: 'delivery-scooter' | 'car') => {
@@ -186,7 +180,7 @@ export function CheckoutScreen({ navigation }: Props) {
             adjustsFontSizeToFit
             minimumFontScale={0.85}
           >
-            {t(type === 'pickup' ? 'checkout.curbside' : 'checkout.homeDelivery')}
+            {t(type === 'curbside' ? 'checkout.curbside' : 'checkout.homeDelivery')}
           </Text>
           <Text
             style={styles.modeSubtitle}
@@ -194,7 +188,7 @@ export function CheckoutScreen({ navigation }: Props) {
             adjustsFontSizeToFit
             minimumFontScale={0.85}
           >
-            {t(type === 'pickup' ? 'checkout.curbsideSub' : 'checkout.homeDeliverySub')}
+            {t(type === 'curbside' ? 'checkout.curbsideSub' : 'checkout.homeDeliverySub')}
           </Text>
         </View>
       </PressableScale>
@@ -221,7 +215,7 @@ export function CheckoutScreen({ navigation }: Props) {
         {/* Fulfillment type */}
         <View style={styles.modeRow}>
           {fulfillmentTab('delivery', 'delivery-scooter')}
-          {fulfillmentTab('pickup', 'car')}
+          {fulfillmentTab('curbside', 'car')}
         </View>
 
         {/* Screen 06 explains curbside next to the tab that switches to it; on
@@ -246,7 +240,7 @@ export function CheckoutScreen({ navigation }: Props) {
                   style={styles.plateInput}
                   value={car.plate}
                   onChangeText={(plate) => setCar((c) => ({ ...c, plate }))}
-                  placeholder={DEFAULT_CAR.plate}
+                  placeholder={t('checkout.platePlaceholder')}
                   placeholderTextColor={colors.disabledSoft}
                   autoCapitalize="characters"
                   autoCorrect={false}
@@ -310,9 +304,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
             <View style={[styles.hintCard, styles.hintCardArrival]}>
               <Icon name="bell-active" size={20} color={colors.textSecondary} />
-              <Text style={styles.hintText}>
-                {t('checkout.curbsideArriveHint', { bay: CURBSIDE_BAY })}
-              </Text>
+              <Text style={styles.hintText}>{t('checkout.curbsideArriveHintNoBay')}</Text>
             </View>
           </>
         ) : (
@@ -467,6 +459,7 @@ export function CheckoutScreen({ navigation }: Props) {
 
       <CarColourSheet
         visible={colourSheetOpen}
+        colours={carColours}
         selectedHex={car.colourHex}
         onClose={() => setColourSheetOpen(false)}
         onConfirm={(colour) => {

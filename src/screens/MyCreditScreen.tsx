@@ -26,7 +26,7 @@ export function MyCreditScreen({ navigation }: Props) {
   const { t, language } = useLang();
   const { show } = useToast();
   const { session } = useAuth();
-  const { credit, payCredit } = useOrders();
+  const { credit } = useOrders();
   const [monthFilter] = useState<string | null>(null);
 
   const headroom = availableCredit(credit);
@@ -103,16 +103,17 @@ export function MyCreditScreen({ navigation }: Props) {
               </Text>
             </View>
 
+            {/* No online payment gateway in v1 (BACKEND-DESIGN D12) — settling a
+                tab happens at the shop or by bank transfer, and staff record it
+                on their side; this only tells the customer how. */}
             <PressableScale
               accessibilityRole="button"
               accessibilityState={{ disabled: credit.balance <= 0 }}
               disabled={credit.balance <= 0}
               onPress={() => {
-                const amount = credit.balance;
-                payCredit(amount);
                 show({
-                  title: t('credit.paidToast'),
-                  body: t('credit.paidToastBody', { amount: formatAmount(amount) }),
+                  title: t('credit.settleInfoTitle'),
+                  body: t('credit.settleInfoBody'),
                   tone: 'success',
                   icon: 'cash',
                 });

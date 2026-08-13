@@ -14,6 +14,8 @@ import { SplashScreen } from './src/screens/SplashScreen';
 import { AddressesProvider } from './src/store/AddressesContext';
 import { AuthProvider, useAuth } from './src/store/AuthContext';
 import { CartProvider } from './src/store/CartContext';
+import { CatalogProvider } from './src/store/CatalogContext';
+import { ConfigProvider } from './src/store/ConfigContext';
 import { OrdersProvider } from './src/store/OrdersContext';
 import { SearchHistoryProvider } from './src/store/SearchHistoryContext';
 import { applyDirection, directionNeedsRestart, reloadApp } from './src/utils/rtl';
@@ -116,17 +118,21 @@ export default function App() {
       <StatusBar style="dark" />
       <LocaleProvider initialLanguage={language}>
         <AuthProvider>
-          <CartProvider>
-            <AddressesProvider>
-              <OrdersProvider>
-                <SearchHistoryProvider>
-                  <ToastProvider>
-                    <Gate />
-                  </ToastProvider>
-                </SearchHistoryProvider>
-              </OrdersProvider>
-            </AddressesProvider>
-          </CartProvider>
+          <ConfigProvider>
+            <CatalogProvider>
+              <CartProvider>
+                <AddressesProvider>
+                  <OrdersProvider>
+                    <SearchHistoryProvider>
+                      <ToastProvider>
+                        <Gate />
+                      </ToastProvider>
+                    </SearchHistoryProvider>
+                  </OrdersProvider>
+                </AddressesProvider>
+              </CartProvider>
+            </CatalogProvider>
+          </ConfigProvider>
         </AuthProvider>
       </LocaleProvider>
     </SafeAreaProvider>

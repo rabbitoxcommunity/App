@@ -20,7 +20,7 @@ export function LegalScreen({ route, navigation }: Props) {
   return (
     <Screen>
       <View style={styles.header}>
-        <IconButton name="back" onPress={() => navigation.goBack()} />
+        <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel={t('common.back')} />
         <Text style={styles.headerTitle}>{title}</Text>
         <View style={{ width: 44 }} />
       </View>

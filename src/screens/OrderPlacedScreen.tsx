@@ -5,9 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
 import { PrimaryButton, Screen, TextLink } from '../components/ui';
-import { DELIVERY_ETA_MINUTES } from '../data/mock';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { useConfig } from '../store/ConfigContext';
 import { useOrders } from '../store/OrdersContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
@@ -25,6 +25,8 @@ export function OrderPlacedScreen({ route, navigation }: Props) {
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const { getOrder } = useOrders();
+  const { config } = useConfig();
+  const deliveryEtaMinutes = config?.settings.deliveryEtaMinutes ?? 30;
   const order = getOrder(orderId);
 
   // The mark springs in, then the ring pulses outward once behind it.
@@ -100,14 +102,14 @@ export function OrderPlacedScreen({ route, navigation }: Props) {
 
             <View style={styles.etaRow}>
               <Icon
-                name={order.fulfillment === 'pickup' ? 'storefront' : 'delivery-scooter'}
+                name={order.fulfillment === 'curbside' ? 'storefront' : 'delivery-scooter'}
                 size={20}
                 color={colors.primary}
               />
               <Text style={styles.etaLabel}>
-                {order.fulfillment === 'pickup'
+                {order.fulfillment === 'curbside'
                   ? t('orderPlaced.pickupReady')
-                  : t('orderPlaced.deliveryEta', { minutes: DELIVERY_ETA_MINUTES })}
+                  : t('orderPlaced.deliveryEta', { minutes: deliveryEtaMinutes })}
               </Text>
             </View>
 

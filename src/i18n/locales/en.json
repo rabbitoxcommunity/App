@@ -43,7 +43,7 @@
     "apple": "Apple",
     "invalidPhone": "Enter a valid mobile number",
     "invalidOtp": "That code doesn't match. Try again.",
-    "hint": "Demo build — use code {{code}}"
+    "codeSent": "Code sent"
   },
   "legal": {
     "termsTitle": "Terms & Conditions",
@@ -53,6 +53,7 @@
   },
   "home": {
     "deliverTo": "Deliver to",
+    "noAddress": "Add a delivery address",
     "searchPlaceholder": "Search milk, bread, snacks…",
     "categories": "Categories",
     "reorderTitle": "Reorder your last basket",
@@ -199,6 +200,7 @@
     "baysFree": "{{count}} curbside bays free",
     "yourCar": "Your car",
     "plate": "PLATE",
+    "platePlaceholder": "e.g. Dubai · A 12345",
     "colour": "COLOUR",
     "chooseColour": "Choose car colour",
     "sedan": "Sedan",
@@ -213,6 +215,7 @@
     "pickTime": "Pick a time",
     "free": "FREE",
     "curbsideArriveHint": "Tap \"I have arrived\" in the app when you park — we will come out to bay {{bay}}.",
+    "curbsideArriveHintNoBay": "Tap \"I have arrived\" in the app when you park — a bay will be assigned once your order is packed.",
     "placed": "Order placed",
     "placedBody": "Order {{reference}} is on its way"
   },
@@ -266,6 +269,7 @@
     "confirmationHintPickup": "Show this at the curbside bay",
     "arrivedCta": "I have arrived",
     "arrivedHint": "We will bring your order to bay {{bay}}",
+    "arrivedHintNoBay": "We will bring your order out to you shortly",
     "callRider": "Call rider",
     "status": {
       "placed": "Order placed",
@@ -299,13 +303,13 @@
     "dueBy": "Due by {{date}}",
     "available": "AED {{available}} available",
     "limit": "Limit AED {{limit}}",
-    "payNow": "Pay balance now",
+    "payNow": "Settle balance",
     "history": "Credit history",
     "paid": "Paid",
     "unpaid": "Unpaid",
     "trustNote": "Every credit purchase and payment is recorded here — no more relying on memory.",
-    "paidToast": "Payment recorded",
-    "paidToastBody": "AED {{amount}} cleared from your tab",
+    "settleInfoTitle": "Settle at the shop",
+    "settleInfoBody": "Pay your balance in person or by bank transfer — the shop will record it here once received.",
     "notApproved": "Credit not enabled",
     "notApprovedBody": "Ask the shop to approve your tab and it will appear here.",
     "empty": "No credit activity yet"

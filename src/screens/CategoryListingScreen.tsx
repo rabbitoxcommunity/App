@@ -3,13 +3,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { requestStockNotification } from '../api/notifications';
 import { CartPeekBar } from '../components/CartPeekBar';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn } from '../components/motion';
 import { ProductRow } from '../components/ProductRow';
 import { useToast } from '../components/Toast';
 import { AppHeader, EmptyState, IconButton, Screen } from '../components/ui';
-import { getCategory, productsInCategory, t as tr } from '../data/catalog';
+import { defaultVariant, t as tr } from '../data/catalog';
 import {
   activeFilterCount,
   applyFilters,
@@ -19,6 +20,7 @@ import {
 import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { useCatalog } from '../store/CatalogContext';
 import { colors, fontSize, radii, spacing, weight } from '../theme';
 import { FilterSheet } from './FilterSheet';
 
@@ -33,30 +35,23 @@ export function CategoryListingScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { addProduct } = useAddToCart();
   const { show } = useToast();
+  const { getCategory, productsInCategory, reload } = useCatalog();
 
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [sheetOpen, setSheetOpen] = useState(false);
-
   const [refreshing, setRefreshing] = useState(false);
-  /** Bumped by pull-to-refresh to re-run the catalogue selectors below. */
-  const [reloadToken, setReloadToken] = useState(0);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // The floor keeps the spinner on screen long enough to read; without it a
-      // synchronous re-read kills it inside a frame and the pull looks broken.
-      await new Promise((r) => setTimeout(r, 450));
-      setReloadToken((n) => n + 1);
+      await reload();
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [reload]);
 
   const category = getCategory(categoryId);
-  // `reloadToken` is a dependency on purpose: it is what makes the pull re-read
-  // the catalogue rather than serve the memoised list back.
-  const allProducts = useMemo(() => productsInCategory(categoryId), [categoryId, reloadToken]);
+  const allProducts = useMemo(() => productsInCategory(categoryId), [categoryId, productsInCategory]);
   const products = useMemo(() => applyFilters(allProducts, filters), [allProducts, filters]);
   const filterCount = activeFilterCount(filters);
 
@@ -165,14 +160,15 @@ export function CategoryListingScreen({ route, navigation }: Props) {
             product={item}
             onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
             onAdd={() => addProduct(item)}
-            onNotify={() =>
+            onNotify={() => {
+              requestStockNotification(defaultVariant(item).id).catch(() => undefined);
               show({
                 title: t('stock.notifyMe'),
                 body: tr(item.name, language),
                 tone: 'success',
                 icon: 'notifications',
-              })
-            }
+              });
+            }}
           />
           </FadeSlideIn>
         )}

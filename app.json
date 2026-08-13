@@ -9,7 +9,9 @@
     "userInterfaceStyle": "light",
     "backgroundColor": "#FFFFFF",
     "extra": {
-      "apiBaseUrl": "http://localhost:4000/api"
+      "apiBaseUrl": "http://localhost:4000/api/v1",
+      "tenantId": "6a7daaab18c1a3fa1d9de39e",
+      "tenantSlug": "freshcart-demo"
     },
     "ios": {
       "supportsTablet": true,
@@ -46,7 +48,8 @@
           "imageWidth": 112,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

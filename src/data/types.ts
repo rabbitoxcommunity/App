@@ -1,5 +1,3 @@
-import type { ImageSourcePropType } from 'react-native';
-
 import type { IconName } from '../components/Icon';
 
 /**
@@ -64,16 +62,16 @@ export type Product = {
 export type Subcategory = {
   id: string;
   name: Localized;
-  count: number;
+  /** The backend doesn't maintain a live per-subcategory product count; screens compute it locally when they have the product list, and omit the badge otherwise. */
+  count?: number;
 };
 
 export type Category = {
   id: string;
-  /** Translation key under `categories.*` — categories are app-owned copy. */
   name: Localized;
-  /** Bundled tile photo. Required — every category ships with artwork. */
-  image: ImageSourcePropType;
-  /** Fallback glyph, drawn if the photo ever fails to decode. */
+  /** CMS-managed tile photo URL. Absent until the shop uploads one — screens fall back to `icon`. */
+  imageUrl?: string;
+  /** Fallback glyph, drawn if there's no photo or it fails to decode. */
   icon: IconName;
   subcategories: Subcategory[];
 };
@@ -84,7 +82,8 @@ export type CartLine = {
   quantity: number;
 };
 
-export type FulfillmentType = 'delivery' | 'pickup';
+/** Matches the backend's own naming (BACKEND-DESIGN §8) — "pickup" only ever refers to the `ready_for_pickup` order status. */
+export type FulfillmentType = 'delivery' | 'curbside';
 
 /* ----------------------------------------------------------- Checkout data */
 
@@ -107,22 +106,12 @@ export type PaymentMethod = {
   requiresCreditApproval?: boolean;
 };
 
-export type DeliverySlot = {
-  id: string;
-  /** ISO date the slot belongs to. */
-  date: string;
-  label: Localized;
-  note?: Localized;
-  /** `undefined` price means free. */
-  fee?: number;
-  slotsLeft: number;
-  recommended?: boolean;
-};
-
-export type PickupStore = {
-  id: string;
+/** The tenant's single branch (A1: single-branch-per-tenant) — the curbside pickup point, read from `GET /config`. */
+export type Store = {
   name: Localized;
   details: Localized;
+  address: Localized;
+  phone: string;
   baysFree: number;
 };
 
@@ -166,7 +155,7 @@ export const PICKUP_FLOW: OrderStatus[] = [
 ];
 
 export const flowFor = (type: FulfillmentType): OrderStatus[] =>
-  type === 'pickup' ? PICKUP_FLOW : DELIVERY_FLOW;
+  type === 'curbside' ? PICKUP_FLOW : DELIVERY_FLOW;
 
 export type OrderEvent = {
   status: OrderStatus;
@@ -201,16 +190,19 @@ export type Order = {
   paymentKind: PaymentMethodKind;
   /** Handed to the rider at the door / to staff at the bay. */
   confirmationCode: string;
-  addressId?: string;
-  storeId?: string;
   rider?: { name: Localized; etaMinutes: number };
   estimatedAt?: string;
-  slotLabel?: Localized;
+  /** Curbside only — captured at order creation; staff match the car in the bay against this. */
+  car?: CarProfile;
+  /** Curbside only — the customer's "on the way" / "near" ping, ahead of tapping "I've arrived". */
+  arrival?: 'on_way' | 'near' | null;
+  /** Curbside only — the bay number assigned once staff start packing. */
+  bay?: number | null;
 };
 
 /* ------------------------------------------------------------- Credit data */
 
-export type CreditEntryKind = 'purchase' | 'payment';
+export type CreditEntryKind = 'charge' | 'payment';
 
 export type CreditEntry = {
   id: string;
