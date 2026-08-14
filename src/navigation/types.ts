@@ -18,13 +18,15 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   CategoryListing: { categoryId: string };
   ProductDetail: { productId: string; variantId?: string };
-  Checkout: undefined;
+  Checkout: { pickedLocation?: { latitude: number; longitude: number } } | undefined;
   OrderPlaced: { orderId: string };
   /** Omit `orderId` to track whichever order is currently live. */
   OrderTracking: { orderId?: string } | undefined;
   MyCredit: undefined;
   ToastGallery: undefined;
   Search: { query?: string };
+  LocationPicker: { onLocationPicked: (location: { latitude: number; longitude: number; label?: string; lines?: string }) => void };
+  Addresses: undefined;
 };
 
 /** Filter state handed between the listing screen and its bottom sheet. */

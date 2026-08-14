@@ -12,6 +12,8 @@ import { OrderTrackingScreen } from '../screens/OrderTrackingScreen';
 import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { ToastGalleryScreen } from '../screens/ToastGalleryScreen';
+import { LocationPickerScreen } from '../screens/LocationPickerScreen';
+import { AddressesScreen } from '../screens/AddressesScreen';
 import { useAuth } from '../store/AuthContext';
 import { colors } from '../theme';
 import { TabNavigator } from './TabNavigator';
@@ -67,6 +69,8 @@ export function RootNavigator() {
             <Stack.Screen name="MyCredit" component={MyCreditScreen} />
             <Stack.Screen name="ToastGallery" component={ToastGalleryScreen} />
             <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'fade' }} />
+            <Stack.Screen name="LocationPicker" component={LocationPickerScreen} />
+            <Stack.Screen name="Addresses" component={AddressesScreen} />
           </Stack.Group>
         ) : (
           <Stack.Group>

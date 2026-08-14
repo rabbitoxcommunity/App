@@ -34,7 +34,25 @@ const BODY_TYPES = [
   { value: 'coupe', labelKey: 'checkout.coupe' },
 ] as const satisfies readonly { value: CarProfile['bodyType']; labelKey: string }[];
 
-export function CheckoutScreen({ navigation }: Props) {
+/**
+ * Pulls a human field-level message out of an ApiError's `details`, which is
+ * shaped differently depending on whether the 400 came from Zod schema
+ * validation (`{ issues: [{ message, path }] }`) or a service-level
+ * `AppError.validationFailed({ field: 'reason' })` call — both share the same
+ * generic top-level message, so this is the only way to say what's actually wrong.
+ */
+function describeValidationDetails(details: unknown): string | undefined {
+  if (!details || typeof details !== 'object') return undefined;
+  const d = details as Record<string, unknown>;
+  if (Array.isArray(d.issues) && d.issues.length > 0) {
+    const first = d.issues[0] as { message?: string } | undefined;
+    return first?.message;
+  }
+  const firstString = Object.values(d).find((v) => typeof v === 'string');
+  return firstString as string | undefined;
+}
+
+export function CheckoutScreen({ navigation, route }: Props) {
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const { show, hide } = useToast();
@@ -72,8 +90,11 @@ export function CheckoutScreen({ navigation }: Props) {
   const [paymentId, setPaymentId] = useState('');
   const [placing, setPlacing] = useState(false);
 
+  const [pickedLocation, setPickedLocation] = useState<{ latitude: number; longitude: number; label?: string; lines?: string } | null>(null);
+
   const openAddAddress = () => {
     setEditing(null);
+    setPickedLocation(null);
     setAddressSheetOpen(true);
   };
 
@@ -83,12 +104,16 @@ export function CheckoutScreen({ navigation }: Props) {
   };
 
   const saveAddress = async (draft: AddressDraft) => {
+    const finalDraft = pickedLocation
+      ? { ...draft, latitude: pickedLocation.latitude, longitude: pickedLocation.longitude }
+      : draft;
+      
     if (editing) {
-      await updateAddress(editing.id, draft);
+      await updateAddress(editing.id, finalDraft);
       show({ title: t('address.updated'), tone: 'success', icon: 'check-circle' });
     } else {
       // A freshly added address is what the customer wants to ship to.
-      const created = await addAddress(draft);
+      const created = await addAddress(finalDraft);
       setAddressId(created.id);
       show({ title: t('address.added'), tone: 'success', icon: 'check-circle' });
     }
@@ -121,6 +146,19 @@ export function CheckoutScreen({ navigation }: Props) {
 
   const place = async () => {
     if (placing || lines.length === 0 || !payment) return;
+
+    // Catch the two fields the backend would otherwise reject with a bare
+    // "request body failed validation" — checked here so the customer sees
+    // exactly what's missing instead of a generic error after a round trip.
+    if (!isCurbside && !addressId) {
+      show({ title: t('checkout.missingAddress'), tone: 'warning', icon: 'error' });
+      return;
+    }
+    if (isCurbside && !car.plate.trim()) {
+      show({ title: t('checkout.missingPlate'), tone: 'warning', icon: 'error' });
+      return;
+    }
+
     setPlacing(true);
     show({ title: t('toast.placingOrder'), tone: 'loading', variant: 'hud' });
 
@@ -144,6 +182,7 @@ export function CheckoutScreen({ navigation }: Props) {
       hide();
       show({
         title: e instanceof ApiError ? e.message : t('toast.offlineTitle'),
+        body: e instanceof ApiError ? describeValidationDetails(e.details) : undefined,
         tone: 'danger',
         icon: 'error',
       });
@@ -396,9 +435,13 @@ export function CheckoutScreen({ navigation }: Props) {
                           available: formatAmount(headroom),
                           limit: formatAmount(credit.limit),
                         })
-                    : method.subtitle
-                      ? tr(method.subtitle, language)
-                      : undefined
+                    : method.kind === 'card'
+                      ? t('checkout.cardSub')
+                      : method.kind === 'cash'
+                        ? t('checkout.cashSub')
+                        : method.subtitle
+                          ? tr(method.subtitle, language)
+                          : undefined
                 }
               />
             </FadeSlideIn>
@@ -450,6 +493,18 @@ export function CheckoutScreen({ navigation }: Props) {
       <AddressSheet
         visible={addressSheetOpen}
         address={editing}
+        pickedLocation={pickedLocation}
+        onPickLocation={() => {
+          setAddressSheetOpen(false);
+          setTimeout(() => {
+            navigation.navigate('LocationPicker', {
+              onLocationPicked: (loc) => {
+                setPickedLocation(loc);
+                setAddressSheetOpen(true);
+              },
+            });
+          }, 150);
+        }}
         // Clearing the flag here would leave the book with no primary at all —
         // promoting a different address is what moves it.
         canUnsetPrimary={!editing?.isPrimary}

@@ -99,7 +99,11 @@ export function HomeScreen() {
       >
         {/* Address + notifications */}
         <View style={styles.topRow}>
-          <Pressable accessibilityRole="button" style={styles.address}>
+          <Pressable 
+            accessibilityRole="button" 
+            style={styles.address}
+            onPress={() => navigation.navigate('Addresses')}
+          >
             <Icon name="location" size={22} color={colors.primary} />
             <View>
               <Text style={styles.addressLabel}>{t('home.deliverTo')}</Text>

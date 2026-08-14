@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "backgroundColor": "#FFFFFF",
     "extra": {
-      "apiBaseUrl": "http://localhost:4000/api/v1",
+      "apiBaseUrl": "http://192.168.1.3:4000/api/v1",
       "tenantId": "6a7daaab18c1a3fa1d9de39e",
       "tenantSlug": "freshcart-demo"
     },
@@ -49,7 +49,13 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ]
     ]
   }
 }

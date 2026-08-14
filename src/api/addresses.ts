@@ -6,6 +6,8 @@ export type AddressPayload = {
   lines: { en: string; ar: string };
   phone?: string;
   isPrimary?: boolean;
+  latitude?: number;
+  longitude?: number;
 };
 
 export const listAddresses = () => api.get<Address[]>('/addresses');

@@ -178,6 +178,8 @@
     "curbsideHint": "Curbside: park at the store bay, share your car colour and plate — we bring the order out.",
     "deliveryAddress": "Delivery address",
     "addNew": "Add new",
+    "missingAddress": "Add a delivery address to continue",
+    "missingPlate": "Enter your car's plate number to continue",
     "primary": "PRIMARY",
     "setPrimary": "Set as primary",
     "edit": "Edit",
@@ -217,7 +219,9 @@
     "curbsideArriveHint": "Tap \"I have arrived\" in the app when you park — we will come out to bay {{bay}}.",
     "curbsideArriveHintNoBay": "Tap \"I have arrived\" in the app when you park — a bay will be assigned once your order is packed.",
     "placed": "Order placed",
-    "placedBody": "Order {{reference}} is on its way"
+    "placedBody": "Order {{reference}} is on its way",
+    "cardSub": "Pay with credit or debit card",
+    "cashSub": "Pay in cash on delivery"
   },
   "orderPlaced": {
     "title": "Order placed!",

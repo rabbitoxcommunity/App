@@ -23,6 +23,8 @@ export function AddressSheet({
   canUnsetPrimary,
   onClose,
   onSave,
+  onPickLocation,
+  pickedLocation,
 }: {
   visible: boolean;
   /** The address being edited, or `null` to add a new one. */
@@ -31,6 +33,8 @@ export function AddressSheet({
   canUnsetPrimary: boolean;
   onClose: () => void;
   onSave: (draft: AddressDraft) => void;
+  onPickLocation?: () => void;
+  pickedLocation?: { latitude: number; longitude: number; label?: string; lines?: string } | null;
 }) {
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
@@ -41,19 +45,25 @@ export function AddressSheet({
   const [isPrimary, setIsPrimary] = useState(false);
   const [touched, setTouched] = useState(false);
 
-  // Re-seed every time the sheet opens so a cancelled edit leaves no residue.
   useEffect(() => {
     if (!visible) return;
-    setLabel(address ? tr(address.label, language) : '');
-    setLines(address ? tr(address.lines, language) : '');
-    setPhone(address?.phone ?? '');
-    setIsPrimary(address?.isPrimary ?? false);
+    
+    if (pickedLocation) {
+      if (pickedLocation.label) setLabel(pickedLocation.label);
+      if (pickedLocation.lines) setLines(pickedLocation.lines);
+    } else {
+      setLabel(address ? tr(address.label, language) : '');
+      setLines(address ? tr(address.lines, language) : '');
+      setPhone(address?.phone ?? '');
+      setIsPrimary(address?.isPrimary ?? false);
+    }
     setTouched(false);
-  }, [visible, address, language]);
+  }, [visible, address, language, pickedLocation]);
 
   const labelError = touched && !label.trim();
   const linesError = touched && !lines.trim();
-  const valid = !!label.trim() && !!lines.trim();
+  const phoneError = touched && !phone.trim();
+  const valid = !!label.trim() && !!lines.trim() && !!phone.trim();
 
   const save = () => {
     if (!valid) {
@@ -112,6 +122,18 @@ export function AddressSheet({
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
       >
+        <PressableScale
+          accessibilityRole="button"
+          onPress={onPickLocation}
+          style={styles.mapPickerButton}
+          activeScale={0.98}
+        >
+          <Icon name="location" size={20} color={colors.primary} />
+          <Text style={styles.mapPickerLabel}>
+            {pickedLocation ? 'Location Selected' : 'Select Location on Map'}
+          </Text>
+        </PressableScale>
+
         <Field
           label={t('address.labelField')}
           value={label}
@@ -134,7 +156,7 @@ export function AddressSheet({
           onChangeText={(v) => setPhone(v)}
           placeholder={t('address.phonePlaceholder')}
           keyboardType="phone-pad"
-          optional
+          error={phoneError}
         />
 
         <PressableScale
@@ -216,6 +238,24 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   body: { paddingHorizontal: spacing.gutter, paddingTop: spacing.lg + 2, gap: 10 },
+
+  mapPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryTintedBg,
+    borderRadius: radii['2xl'],
+    paddingVertical: 14,
+    marginBottom: 4,
+  },
+  mapPickerLabel: {
+    fontSize: fontSize.base,
+    fontWeight: weight.heavy,
+    color: colors.primary,
+  },
 
   field: {
     minHeight: 58,

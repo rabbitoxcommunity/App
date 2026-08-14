@@ -40,7 +40,7 @@ export function AccountScreen() {
       key: 'addresses',
       icon: 'location',
       label: t('account.addresses'),
-      onPress: () => show({ title: t('account.addresses'), icon: 'location' }),
+      onPress: () => navigation.navigate('Addresses'),
     },
     {
       key: 'credit',

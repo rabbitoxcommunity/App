@@ -93,6 +93,8 @@ export type Address = {
   lines: Localized;
   phone?: string;
   isPrimary: boolean;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type PaymentMethodKind = 'card' | 'credit' | 'cash';
