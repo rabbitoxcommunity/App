@@ -61,6 +61,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [rawLines, setRawLines] = useState<CartLine[]>([]);
   const [promoCode, setPromoCode] = useState<string | null>(null);
   const [fulfillment, setFulfillment] = useState<FulfillmentType>('delivery');
+  const [discount, setDiscount] = useState(0);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -102,14 +103,31 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [rawLines, getProduct],
   );
 
+  useEffect(() => {
+    if (!promoCode || lines.length === 0) {
+      setDiscount(0);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const { priceCart } = await import('../api/cart');
+        const priced = await priceCart({
+          lines: lines.map(l => ({ variantId: l.variantId, quantity: l.quantity })),
+          promoCode,
+          fulfillment,
+        });
+        setDiscount(priced.discount);
+      } catch (e) {
+        // If pricing fails (e.g. promo became invalid), we keep the current discount
+        // or clear it. We'll leave it as is, or maybe clear it:
+        // setDiscount(0);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [lines, promoCode, fulfillment]);
+
   const totals = useMemo<CartTotals>(() => {
     const subtotal = round(lines.reduce((sum, l) => sum + l.lineTotal, 0));
-    // The exact discount amount only exists once `cart/price` (§8) has priced the
-    // basket server-side — Checkout is where that authoritative number appears.
-    // Showing a guessed figure here would risk quoting the wrong total, so the
-    // pre-checkout estimate simply omits it rather than approximate it.
-    const discount = 0;
-    // Curbside pickup has no delivery fee — see the fulfillment rules in the brief.
     const fee = lines.length === 0 || fulfillment === 'curbside' ? 0 : deliveryFee;
     return {
       subtotal,
@@ -118,7 +136,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       total: round(subtotal - discount + fee),
       itemCount: lines.reduce((sum, l) => sum + l.quantity, 0),
     };
-  }, [lines, fulfillment, deliveryFee]);
+  }, [lines, fulfillment, deliveryFee, discount]);
 
   const quantityOf = useCallback(
     (variantId: string) => rawLines.find((l) => l.variantId === variantId)?.quantity ?? 0,

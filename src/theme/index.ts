@@ -45,6 +45,7 @@ export const colors = {
   warningSoftBorder: '#F2D9A6',
 
   danger: '#C0392B',
+  dangerBright: '#FF3B30',
   dangerInk: '#8F2B20',
   dangerInkSoft: '#A85A50',
   dangerSoft: '#FDECEC',

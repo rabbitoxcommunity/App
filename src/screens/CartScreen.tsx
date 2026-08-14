@@ -2,6 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -47,6 +48,16 @@ export function CartScreen() {
 
   const [promoInput, setPromoInput] = useState('');
   const tabBarHeight = useGlassTabBarHeight();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  React.useEffect(() => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const onRemove = (line: ResolvedCartLine) => {
     const { productId, variantId, quantity } = line;
@@ -70,6 +81,7 @@ export function CartScreen() {
         icon: 'promo',
       });
     } else {
+      setPromoInput('');
       show({ title: t('toast.promoInvalid'), tone: 'warning', icon: 'error' });
     }
   };
@@ -107,7 +119,7 @@ export function CartScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={insets.bottom + 80}
+        keyboardVerticalOffset={insets.top}
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{t('cart.title', { count: totals.itemCount })}</Text>
@@ -183,9 +195,13 @@ export function CartScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={withTap(promoCode ? removePromo : onApplyPromo)}
-              style={({ pressed }) => [styles.promoButton, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.promoButton, 
+                promoCode && styles.promoButtonRemove,
+                pressed && styles.pressed
+              ]}
             >
-              <Text style={styles.promoButtonLabel}>
+              <Text style={[styles.promoButtonLabel, promoCode && styles.promoButtonLabelRemove]}>
                 {promoCode ? t('common.remove') : t('common.apply')}
               </Text>
             </Pressable>
@@ -221,7 +237,7 @@ export function CartScreen() {
         </ScrollView>
 
         {/* Checkout bar */}
-        <View style={[styles.checkoutWrap, { paddingBottom: tabBarHeight }]}>
+        <View style={[styles.checkoutWrap, { paddingBottom: keyboardVisible ? 14 : tabBarHeight }]}>
           <Pressable
             accessibilityRole="button"
             onPress={withTap(() => navigation.navigate('Checkout'), ImpactStyle.Medium)}
@@ -311,7 +327,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   lineTrailing: { alignItems: 'flex-end', gap: spacing.sm },
-  removeLink: { fontSize: fontSize.tiny, fontWeight: weight.bold, color: colors.disabled },
+  removeLink: { fontSize: fontSize.caption, fontWeight: weight.bold, color: colors.dangerBright },
   promoRow: { flexDirection: 'row', gap: 10, marginTop: spacing.sm },
   promoField: {
     flex: 1,
@@ -339,10 +355,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  promoButtonRemove: {
+    backgroundColor: colors.dangerSoft,
+  },
   promoButtonLabel: {
     fontSize: fontSize.body,
     fontWeight: weight.heavy,
     color: colors.primaryDark,
+  },
+  promoButtonLabelRemove: {
+    color: colors.danger,
   },
   pressed: { opacity: 0.85 },
   summary: {
