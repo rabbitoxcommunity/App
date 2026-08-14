@@ -83,7 +83,7 @@ export function ProductCard({
             hitSlop={6}
             style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
           >
-            <Icon name="add" size={22} color={colors.onPrimary} />
+            <Icon name="add" size={22} color={colors.onPrimary} style={styles.addIcon} />
             {hasVariants(product) && (
               <View style={styles.variantDot}>
                 <Icon name="tune" size={10} color={colors.onPrimary} />
@@ -143,6 +143,9 @@ const makeStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addIcon: {
+    transform: [{ translateY: 1 }],
   },
   variantDot: {
     position: 'absolute',
