@@ -10,11 +10,12 @@ import {
 } from '../data/catalog';
 import type { Product } from '../data/types';
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
 import { Icon } from './Icon';
 import { ProductImage } from './ProductImage';
 import { ImpactStyle, withTap } from '../utils/haptics';
+import { useTheme } from "../store/ConfigContext";
 
 export const PRODUCT_CARD_WIDTH = 152;
 
@@ -31,6 +32,9 @@ export function ProductCard({
   onPress: () => void;
   onAdd: () => void;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const stock = productStock(product);
   const soldOut = !isPurchasable(stock);
@@ -92,7 +96,7 @@ export function ProductCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   card: {
     width: PRODUCT_CARD_WIDTH,
     borderWidth: 1.5,

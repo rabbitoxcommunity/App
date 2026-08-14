@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { colors, radii, spacing } from '../theme';
+import { radii, spacing } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * Loading placeholders.
@@ -13,6 +14,9 @@ import { colors, radii, spacing } from '../theme';
 const PULSE_MS = 850;
 
 function usePulse() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const value = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -53,6 +57,9 @@ export function Skeleton({
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const opacity = usePulse();
   return (
     <Animated.View
@@ -73,6 +80,9 @@ export function Skeleton({
 
 /** Stand-in for the product cards on the Home rail. */
 export function ProductCardSkeleton() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.card}>
       <Skeleton width="100%" height={112} radius={radii.xl} />
@@ -88,6 +98,9 @@ export function ProductCardSkeleton() {
 
 /** Stand-in for the full-width rows in the category listing and search. */
 export function ProductRowSkeleton() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.row}>
       <Skeleton width={66} height={66} radius={radii.lg} />
@@ -106,6 +119,9 @@ export function ProductRowSkeleton() {
 
 /** Stand-in for an order history card. */
 export function OrderCardSkeleton() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.orderCard}>
       <View style={styles.orderHeader}>
@@ -128,6 +144,9 @@ export function OrderCardSkeleton() {
 
 /** Stand-in for a category icon on the Home screen. */
 export function CategorySkeleton() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={{ alignItems: 'center', gap: 7 }}>
       <Skeleton width={60} height={60} radius={radii['3xl']} />
@@ -146,6 +165,9 @@ export function SkeletonList({
   gap?: number;
   children: () => React.ReactNode;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={{ gap }}>
       {Array.from({ length: count }).map((_, i) => (
@@ -155,7 +177,7 @@ export function SkeletonList({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   block: { backgroundColor: colors.borderLight, overflow: 'hidden' },
   flex: { flex: 1 },
   gapTop: { marginTop: 10 },

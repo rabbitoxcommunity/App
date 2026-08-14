@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-
-import { colors } from '../theme';
 import { Icon, type IconName } from './Icon';
 import { Skeleton } from './Skeleton';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * Stands in for the design's `<image-slot>`: renders the product photo when the
@@ -27,6 +26,9 @@ export function ProductImage({
   dimmed?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   // Photos come off the network, so there is a real gap before the first pixel
   // lands. Errors settle it too — a broken URL must not pulse forever.
   const [pending, setPending] = useState(true);
@@ -58,7 +60,7 @@ export function ProductImage({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   base: {
     backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',

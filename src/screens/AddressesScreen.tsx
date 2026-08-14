@@ -14,12 +14,16 @@ import type { Address } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { type AddressDraft, useAddresses } from '../store/AddressesContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { AddressSheet } from './AddressSheet';
+import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Addresses'>;
 
 export function AddressesScreen({ navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const { show } = useToast();
@@ -185,7 +189,7 @@ export function AddressesScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   gutter: { paddingHorizontal: spacing.gutter, paddingTop: 4 },
   content: { paddingHorizontal: spacing.gutter, paddingTop: spacing.md },
   stack: { gap: 10 },

@@ -24,14 +24,17 @@ import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { useCatalog } from '../store/CatalogContext';
-import { useConfig } from '../store/ConfigContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { useConfig, useTheme } from '../store/ConfigContext';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
 import { ImpactStyle, withTap } from '../utils/haptics';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProductDetail'>;
 
 export function ProductDetailScreen({ route, navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { productId, variantId } = route.params;
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
@@ -357,7 +360,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   scroll: { paddingBottom: spacing.xl },
   gutter: { paddingHorizontal: spacing.gutter, paddingTop: spacing.xl },
   missing: {

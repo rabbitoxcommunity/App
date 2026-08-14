@@ -20,10 +20,14 @@ import type { RootNavigation } from '../navigation/types';
 import { useAddresses } from '../store/AddressesContext';
 import { useCatalog } from '../store/CatalogContext';
 import { useSearchHistory } from '../store/SearchHistoryContext';
-import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatShortDate } from '../utils/format';
+import { useTheme } from "../store/ConfigContext";
 
 export function HomeScreen() {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors, theme), [colors, theme]);
+
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { addProduct } = useAddToCart();
@@ -314,6 +318,9 @@ export function HomeScreen() {
 
 /** Banners are remote, so each slide holds a placeholder until its image lands. */
 function AdSlide({ uri, width, onPress }: { uri: string; width: number; onPress: () => void }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors, theme), [colors]);
+
   const [pending, setPending] = useState(true);
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={[styles.adImage, { width }]}>
@@ -328,7 +335,7 @@ function AdSlide({ uri, width, onPress }: { uri: string; width: number; onPress:
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any, theme: any) => StyleSheet.create({
   content: { paddingHorizontal: spacing.gutter, paddingTop: 6, paddingBottom: 32 },
   pressed: { opacity: 0.8 },
   topRow: {
@@ -371,7 +378,7 @@ const styles = StyleSheet.create({
     // on a 6px inset so it reads as inlaid in the field rather than floating.
     paddingStart: spacing.lg,
     paddingEnd: 6,
-    ...shadow.card,
+    ...theme.shadow.card,
   },
   searchInput: {
     flex: 1,
@@ -389,8 +396,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow.primaryCta,
-    // The field already carries `shadow.card`; a full-strength CTA glow on top
+    ...theme.shadow.primaryCta,
+    // The field already carries `theme.shadow.card`; a full-strength CTA glow on top
     // of it muddies the edge, so the brand glow is dialled back here.
     shadowOpacity: 0.22,
     shadowRadius: 10,

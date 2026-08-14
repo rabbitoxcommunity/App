@@ -19,8 +19,9 @@ import {
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { Icon, type IconName } from './Icon';
+import { useTheme } from "../store/ConfigContext";
 
 export type ToastTone = 'dark' | 'warning' | 'danger' | 'success' | 'loading';
 
@@ -49,54 +50,22 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const TONES: Record<
-  ToastTone,
-  { bg: string; border?: string; title: string; body: string; action: string; icon: string }
-> = {
-  dark: {
-    bg: colors.ink,
-    title: colors.onPrimary,
-    body: 'rgba(255,255,255,0.65)',
-    action: colors.primaryOnDark,
-    icon: colors.onPrimary,
-  },
-  loading: {
-    bg: colors.ink,
-    title: colors.onPrimary,
-    body: 'rgba(255,255,255,0.65)',
-    action: colors.primaryOnDark,
-    icon: colors.onPrimary,
-  },
-  warning: {
-    bg: colors.warningSoft,
-    border: colors.warningSoftBorder,
-    title: colors.warningInk,
-    body: colors.warningInkSoft,
-    action: colors.warning,
-    icon: colors.warning,
-  },
-  danger: {
-    bg: colors.dangerSoft,
-    border: colors.dangerSoftBorder,
-    title: colors.dangerInk,
-    body: colors.dangerInkSoft,
-    action: colors.danger,
-    icon: colors.danger,
-  },
-  success: {
-    bg: colors.primarySoft,
-    border: colors.primarySoftBorder,
-    title: colors.primaryDarker,
-    body: '#4A8C2C',
-    action: colors.primaryDark,
-    icon: colors.primaryDark,
-  },
+type ToastStyleConfig = {
+  bg: string;
+  border?: string;
+  title: string;
+  body: string;
+  action: string;
+  icon: string;
 };
 
 /** Height of the bottom tab bar the toast floats above (design: 86px). */
 const TAB_BAR_HEIGHT = 62;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const [toast, setToast] = useState<ToastOptions | null>(null);
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-120)).current;
@@ -175,7 +144,64 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<ToastContextValue>(() => ({ show, hide }), [show, hide]);
 
-  const tone = TONES[toast?.tone ?? 'dark'];
+    const TYPE_CONFIG: Record<ToastTone, ToastStyleConfig> = React.useMemo(() => ({
+      dark: {
+        bg: colors.ink,
+        title: colors.onPrimary,
+        body: 'rgba(255,255,255,0.65)',
+        action: colors.primaryOnDark,
+        icon: colors.onPrimary,
+      },
+      loading: {
+        bg: colors.ink,
+        title: colors.onPrimary,
+        body: 'rgba(255,255,255,0.65)',
+        action: colors.primaryOnDark,
+        icon: colors.onPrimary,
+      },
+      success: {
+        bg: colors.primarySoft,
+        border: colors.primarySoftBorder,
+        title: colors.primaryDarker,
+        body: '#4A8C2C',
+        action: colors.primaryDark,
+        icon: colors.primaryDark,
+      },
+      error: {
+        bg: colors.dangerSoft,
+        border: colors.dangerSoftBorder,
+        title: colors.dangerInk,
+        body: colors.dangerInkSoft,
+        action: colors.danger,
+        icon: colors.danger,
+      },
+      warning: {
+        bg: colors.warningSoft,
+        border: colors.warningSoftBorder,
+        title: colors.warningInk,
+        body: colors.warningInkSoft,
+        action: colors.warning,
+        icon: colors.warning,
+      },
+      danger: {
+        bg: colors.dangerSoft,
+        border: colors.dangerSoftBorder,
+        title: colors.dangerInk,
+        body: colors.dangerInkSoft,
+        action: colors.danger,
+        icon: colors.danger,
+      },
+      system: {
+        bg: colors.primarySoft,
+        border: colors.primarySoftBorder,
+        title: colors.primaryDarker,
+        body: colors.primaryDark,
+        action: colors.primaryDark,
+        icon: colors.primaryDark,
+      },
+    }), [colors]);
+
+  const tone = (toast?.tone && TYPE_CONFIG[toast.tone as keyof typeof TYPE_CONFIG]) ?? TYPE_CONFIG.dark;
   const isHud = toast?.variant === 'hud';
 
   return (
@@ -227,7 +253,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               { backgroundColor: tone.bg },
               tone.border ? { borderWidth: 1.5, borderColor: tone.border } : null,
               toast.tone === 'dark' || toast.tone === 'loading' || !toast.tone
-                ? shadow.toast
+                ? theme.shadow.toast
                 : null,
             ]}
           >
@@ -277,7 +303,7 @@ export function useToast(): ToastContextValue {
   return ctx;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   hudScrim: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',

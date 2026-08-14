@@ -13,15 +13,19 @@ import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCart } from '../store/CartContext';
 import { useOrders } from '../store/OrdersContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatShortDate } from '../utils/format';
 import { ReceiptSheet } from './ReceiptSheet';
+import { useTheme } from "../store/ConfigContext";
 
 /** How many item thumbnails a history card shows before collapsing to "+N". */
 const THUMBS = 3;
 
 /** Screen 09 — Order history, with the active order on its own tab. */
 export function OrdersScreen() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { show } = useToast();
@@ -257,7 +261,7 @@ export function OrdersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: { 
     flexDirection: 'row', 
     alignItems: 'center', 

@@ -9,10 +9,14 @@ import { useLang } from '../hooks/useLang';
 import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCatalog } from '../store/CatalogContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 /** The "Categories" tab: the full aisle list, with a live product count per tile. */
 export function CategoriesScreen() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const tabBarHeight = useGlassTabBarHeight();
@@ -81,7 +85,7 @@ export function CategoriesScreen() {
 
 const CARD_WIDTH = (Dimensions.get('window').width - 52 - 28) / 3;
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   content: { paddingHorizontal: spacing.gutter, paddingTop: 6, paddingBottom: 32 },
   column: { gap: 14, marginBottom: spacing.xl },
   headerRow: {

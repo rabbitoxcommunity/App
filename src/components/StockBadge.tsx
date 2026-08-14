@@ -3,8 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { StockStatus } from '../data/types';
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, radii, weight } from '../theme';
+import { fontSize, radii, weight } from '../theme';
 import { Icon } from './Icon';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * The three-state stock flag as shown in the design: green "In Stock", amber
@@ -19,6 +20,9 @@ export function StockBadge({
   lowStockCount?: number;
   size?: 'sm' | 'md';
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const md = size === 'md';
 
@@ -52,7 +56,7 @@ export function StockBadge({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
     flexDirection: 'row',

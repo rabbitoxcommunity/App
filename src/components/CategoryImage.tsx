@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { colors, radii } from '../theme';
+import { radii } from '../theme';
 import { Icon, type IconName } from './Icon';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * The category tile artwork. The design draws a green glyph on a `#EDF8E7`
@@ -25,6 +26,9 @@ export function CategoryImage({
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const [failed, setFailed] = useState(false);
 
   const box: ViewStyle = {
@@ -48,7 +52,7 @@ export function CategoryImage({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   base: {
     // Shows through while the photo decodes, and behind the fallback glyph —
     // this is the design's category-tile green.

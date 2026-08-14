@@ -11,8 +11,9 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { colors, radii } from '../theme';
+import { radii } from '../theme';
 import { tap, type ImpactStyle } from '../utils/haptics';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * Shared motion primitives. Everything here uses the built-in `Animated` API
@@ -54,6 +55,8 @@ export function PressableScale({
    */
   containerStyle?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+
   const scale = useRef(new Animated.Value(1)).current;
 
   const to = (value: number) =>
@@ -104,6 +107,8 @@ export function FadeSlideIn({
   duration?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -156,6 +161,8 @@ export function Bump({
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+
   const scale = useRef(new Animated.Value(1)).current;
   const previous = useRef(value);
 
@@ -186,6 +193,8 @@ export function AnimatedNumber({
   style?: StyleProp<TextStyle>;
   duration?: number;
 }) {
+    const { colors } = useTheme();
+
   const animated = useRef(new Animated.Value(value)).current;
   const [display, setDisplay] = useState(value);
 
@@ -216,7 +225,7 @@ export function AnimatedBar({
   progress,
   height = 8,
   trackColor,
-  fillColor = colors.primary,
+  fillColor,
   duration = 900,
   style,
 }: {
@@ -227,6 +236,8 @@ export function AnimatedBar({
   duration?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+
   const animated = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -276,6 +287,8 @@ export function AnimatedConnector({
   minHeight?: number;
   delay?: number;
 }) {
+    const { colors } = useTheme();
+
   // Always starts empty; only a completed step draws its connector in.
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -313,7 +326,7 @@ export function AnimatedConnector({
 /** Soft breathing halo, used on the live step of the order timeline. */
 export function Pulse({
   children,
-  color = colors.primary,
+  color,
   size,
   active = true,
 }: {
@@ -322,6 +335,8 @@ export function Pulse({
   size: number;
   active?: boolean;
 }) {
+    const { colors } = useTheme();
+
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -378,6 +393,8 @@ export function Skeleton({
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -419,6 +436,8 @@ export function CrossFade({
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors } = useTheme();
+
   const opacity = useRef(new Animated.Value(1)).current;
   const previous = useRef(sentinel);
 

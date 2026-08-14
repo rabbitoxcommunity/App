@@ -18,12 +18,16 @@ import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { useCatalog } from '../store/CatalogContext';
 import { useSearchHistory } from '../store/SearchHistoryContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { FilterSheet } from './FilterSheet';
+import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Search'>;
 
 export function SearchScreen({ route, navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { query = '' } = route.params || {};
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
@@ -147,7 +151,7 @@ export function SearchScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

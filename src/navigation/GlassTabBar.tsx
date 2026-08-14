@@ -7,8 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '../components/Icon';
 import { Bump } from '../components/motion';
 import { useCart } from '../store/CartContext';
-import { colors, fontSize, radii, weight } from '../theme';
+import { fontSize, radii, weight } from '../theme';
 import type { TabParamList } from './types';
+import { useTheme } from "../store/ConfigContext";
 
 /** Glyph per tab. The active cut is the filled variant of the same symbol. */
 const ICONS: Record<keyof TabParamList, IconName> = {
@@ -43,6 +44,9 @@ export function useGlassTabBarHeight() {
  * slides between tabs.
  */
 export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const insets = useSafeAreaInsets();
   const { itemCount } = useCart();
   const [barWidth, setBarWidth] = useState(0);
@@ -168,7 +172,7 @@ export function GlassTabBar({ state, descriptors, navigation }: BottomTabBarProp
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   host: {
     position: 'absolute',
     start: 0,

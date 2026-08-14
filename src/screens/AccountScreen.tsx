@@ -12,12 +12,16 @@ import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useAuth } from '../store/AuthContext';
 import { useOrders } from '../store/OrdersContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
 import { LanguageSheet } from './LanguageSheet';
+import { useTheme } from "../store/ConfigContext";
 
 /** Screen 10 — Account. */
 export function AccountScreen() {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const { language: current } = useLocale();
   const { session, signOut } = useAuth();
@@ -175,7 +179,7 @@ export function AccountScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: { paddingHorizontal: spacing.gutter, paddingTop: spacing.md },
   title: { fontSize: fontSize['3xl'], fontWeight: weight.heavy, color: colors.ink },
   content: { paddingHorizontal: spacing.gutter, paddingTop: spacing.lg, paddingBottom: 32 },

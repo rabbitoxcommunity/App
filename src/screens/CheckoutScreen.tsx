@@ -16,9 +16,9 @@ import type { RootStackParamList } from '../navigation/types';
 import { type AddressDraft, useAddresses } from '../store/AddressesContext';
 import { useAuth } from '../store/AuthContext';
 import { useCart } from '../store/CartContext';
-import { useConfig } from '../store/ConfigContext';
+import { useConfig, useTheme } from '../store/ConfigContext';
 import { availableCredit, useOrders } from '../store/OrdersContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
 import { ImpactStyle } from '../utils/haptics';
 import { AddressSheet } from './AddressSheet';
@@ -53,6 +53,9 @@ function describeValidationDetails(details: unknown): string | undefined {
 }
 
 export function CheckoutScreen({ navigation, route }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const { show, hide } = useToast();
@@ -536,6 +539,9 @@ function SummaryRow({
   value: string;
   highlight?: boolean;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -544,7 +550,7 @@ function SummaryRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   gutter: { paddingHorizontal: spacing.gutter, paddingTop: 4 },
   content: { paddingHorizontal: spacing.gutter, paddingBottom: spacing['2xl'] },
   stack: { gap: 10 },

@@ -2,9 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { isLoaded } from 'expo-font';
 import React from 'react';
 import { I18nManager, Platform, StyleProp, Text, TextStyle } from 'react-native';
-
-import { colors } from '../theme';
 import { CODEPOINTS, type SymbolName } from './symbols';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * The design (`FreshCart App.dc.html`) is drawn with Material Symbols Rounded.
@@ -188,7 +187,9 @@ export type IconProps = {
   style?: StyleProp<TextStyle>;
 };
 
-export function Icon({ name, size = 22, color = colors.ink, filled, style }: IconProps) {
+export function Icon({ name, size = 22, color, filled, style }: IconProps) {
+    const { colors } = useTheme(); color = color ?? colors.ink;
+
   const glyph = GLYPHS[name];
   const isFilled = filled ?? FILLED.has(name);
   const family = isFilled ? SYMBOL_FONTS.filled : SYMBOL_FONTS.outlined;
@@ -234,7 +235,7 @@ export function Icon({ name, size = 22, color = colors.ink, filled, style }: Ico
 export function BrandIcon({
   name,
   size = 22,
-  color = colors.ink,
+  color,
   style,
 }: {
   name: BrandName;
@@ -242,5 +243,7 @@ export function BrandIcon({
   color?: string;
   style?: StyleProp<TextStyle>;
 }) {
+    const { colors } = useTheme(); color = color ?? colors.ink;
+
   return <MaterialCommunityIcons name={BRAND[name]} size={size} color={color} style={style} />;
 }

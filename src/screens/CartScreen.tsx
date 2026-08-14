@@ -25,11 +25,17 @@ import { useLang } from '../hooks/useLang';
 import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCart, type ResolvedCartLine } from '../store/CartContext';
-import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
 import { ImpactStyle, withTap } from '../utils/haptics';
+import { useTheme } from "../store/ConfigContext";
 
 export function CartScreen() {
+    const { colors, theme } = useTheme();
+    console.log("CartScreen shadow color:", theme.shadow.primaryCta.shadowColor);
+
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<RootNavigation>();
@@ -241,7 +247,7 @@ export function CartScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={withTap(() => navigation.navigate('Checkout'), ImpactStyle.Medium)}
-            style={({ pressed }) => [styles.checkoutBar, shadow.primaryCta, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.checkoutBar, theme.shadow.primaryCta, pressed && styles.pressed]}
           >
             <View style={styles.checkoutText}>
               <Text style={styles.checkoutLabel}>
@@ -273,6 +279,11 @@ function SummaryRow({
   value: string;
   highlight?: boolean;
 }) {
+    const { colors, theme } = useTheme();
+    console.log("CartScreen shadow color:", theme.shadow.primaryCta.shadowColor);
+
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -283,7 +294,7 @@ function SummaryRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   flex: { flex: 1 },
   header: {
     flexDirection: 'row',

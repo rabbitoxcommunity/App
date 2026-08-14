@@ -119,8 +119,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setDiscount(priced.discount);
       } catch (e) {
         // If pricing fails (e.g. promo became invalid), we keep the current discount
-        // or clear it. We'll leave it as is, or maybe clear it:
-        // setDiscount(0);
       }
     }, 400);
     return () => clearTimeout(timer);

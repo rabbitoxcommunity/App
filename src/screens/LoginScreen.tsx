@@ -7,8 +7,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View, Image } from 'react-native';
 
 import { OtpError } from '../api/auth';
 import { Icon } from '../components/Icon';
@@ -19,8 +18,10 @@ import { useLocale } from '../i18n/LocaleProvider';
 import { useLang } from '../hooks/useLang';
 import type { RootNavigation } from '../navigation/types';
 import { useAuth } from '../store/AuthContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatCountdown } from '../utils/format';
+import { useTheme } from "../store/ConfigContext";
+import { useConfig } from "../store/ConfigContext";
 
 const OTP_LENGTH = 4;
 const RESEND_SECONDS = 30;
@@ -33,6 +34,11 @@ const formatPhone = (digits: string) =>
   [digits.slice(0, 2), digits.slice(2, 5), digits.slice(5, 9)].filter(Boolean).join(' ');
 
 export function LoginScreen() {
+    const { colors } = useTheme();
+    const { cachedLogoUrl } = useConfig();
+    const logoUrl = cachedLogoUrl;
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const { language, setLanguage } = useLocale();
   const { requestOtp, verifyOtp } = useAuth();
@@ -283,7 +289,7 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: 26, paddingTop: spacing.lg, paddingBottom: 34 },
   langRow: { flexDirection: 'row', justifyContent: 'flex-end' },

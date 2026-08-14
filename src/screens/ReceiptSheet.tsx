@@ -8,8 +8,9 @@ import { PrimaryButton } from '../components/ui';
 import { t as tr } from '../data/catalog';
 import type { Order, PaymentMethodKind } from '../data/types';
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney, formatShortDate } from '../utils/format';
+import { useTheme } from "../store/ConfigContext";
 
 const PAYMENT_LABEL: Record<PaymentMethodKind, string> = {
   card: 'tracking.paidWithCard',
@@ -32,6 +33,9 @@ export function ReceiptSheet({
   order: Order | null;
   onClose: () => void;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   // Held through the closing animation so the body does not blank out mid-slide.
@@ -126,6 +130,9 @@ function Row({
   value: string;
   tone?: 'discount';
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -134,7 +141,7 @@ function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: { paddingBottom: 2 },
   title: { fontSize: 19, fontWeight: weight.heavy, color: colors.ink },
   subtitle: {

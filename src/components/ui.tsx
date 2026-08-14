@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { ImpactStyle, withTap } from '../utils/haptics';
 import { Icon, type IconName } from './Icon';
+import { useTheme } from "../store/ConfigContext";
 
 /* ------------------------------------------------------------------ Screen */
 
@@ -24,15 +25,19 @@ import { Icon, type IconName } from './Icon';
 export function Screen({
   children,
   style,
-  backgroundColor = colors.surface,
+  backgroundColor,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   backgroundColor?: string;
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const insets = useSafeAreaInsets();
+  const bg = backgroundColor ?? colors.surface;
   return (
-    <View style={[{ flex: 1, backgroundColor, paddingTop: insets.top }, style]}>{children}</View>
+    <View style={[{ flex: 1, backgroundColor: bg, paddingTop: insets.top }, style]}>{children}</View>
   );
 }
 
@@ -43,8 +48,8 @@ export function IconButton({
   name,
   onPress,
   accessibilityLabel,
-  color = colors.ink,
-  background = colors.surfaceMuted,
+  color,
+  background,
   badge,
   style,
 }: {
@@ -56,6 +61,9 @@ export function IconButton({
   badge?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -63,11 +71,11 @@ export function IconButton({
       onPress={withTap(onPress)}
       style={({ pressed }) => [
         styles.iconButton,
-        { backgroundColor: background, opacity: pressed ? 0.7 : 1 },
+        { backgroundColor: background ?? colors.surface, opacity: pressed ? 0.7 : 1 },
         style,
       ]}
     >
-      <Icon name={name} size={22} color={color} />
+      <Icon name={name} size={22} color={color ?? colors.ink} />
       {badge && <View style={styles.iconButtonBadge} />}
     </Pressable>
   );
@@ -87,6 +95,9 @@ export function AppHeader({
   trailing?: React.ReactNode;
   align?: 'center' | 'start';
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.header}>
       {onBack ? (
@@ -129,6 +140,9 @@ export function PrimaryButton({
   /** Sheet CTAs are drawn a step smaller than full-width screen CTAs. */
   labelSize?: number;
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const inactive = disabled || loading;
   return (
     <Pressable
@@ -141,7 +155,7 @@ export function PrimaryButton({
       style={({ pressed }) => [
         styles.primaryButton,
         { height },
-        !inactive && shadow.primaryCta,
+        !inactive && theme.shadow.primaryCta,
         inactive && styles.primaryButtonDisabled,
         pressed && !inactive && styles.pressed,
         style,
@@ -169,6 +183,9 @@ export function TextLink({
   onPress?: () => void;
   style?: StyleProp<TextStyle>;
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <Pressable accessibilityRole="button" hitSlop={8} onPress={onPress}>
       {({ pressed }) => (
@@ -189,6 +206,9 @@ export function SectionHeader({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -212,6 +232,9 @@ export function EmptyState({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <View style={[styles.empty, style]}>
       <View style={styles.emptyIcon}>
@@ -231,7 +254,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   iconButton: {
     width: 42,
     height: 42,

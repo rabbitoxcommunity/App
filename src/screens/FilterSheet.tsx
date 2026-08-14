@@ -11,7 +11,8 @@ import { t as tr } from '../data/catalog';
 import { defaultFilters, PRICE_BOUNDS, SORT_KEYS, type FilterState } from '../data/filters';
 import type { Subcategory } from '../data/types';
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * Screen 03b — Filter & sort. Edits stay local until "Show N items" is pressed,
@@ -33,6 +34,9 @@ export function FilterSheet({
   onClose: () => void;
   onApply: (next: FilterState) => void;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<FilterState>(filters);
@@ -174,7 +178,7 @@ export function FilterSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontSize: fontSize['2xl'], fontWeight: weight.heavy, color: colors.ink },
   body: { paddingHorizontal: spacing.gutter, paddingTop: spacing.lg + 2 },

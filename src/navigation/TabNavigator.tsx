@@ -7,13 +7,15 @@ import { CartScreen } from '../screens/CartScreen';
 import { CategoriesScreen } from '../screens/CategoriesScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { OrdersScreen } from '../screens/OrdersScreen';
-import { colors } from '../theme';
 import { GlassTabBar } from './GlassTabBar';
 import type { TabParamList } from './types';
+import { useTheme } from "../store/ConfigContext";
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export function TabNavigator() {
+    const { colors } = useTheme();
+
   const { t } = useLang();
 
   return (

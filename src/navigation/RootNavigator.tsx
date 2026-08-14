@@ -15,29 +15,31 @@ import { ToastGalleryScreen } from '../screens/ToastGalleryScreen';
 import { LocationPickerScreen } from '../screens/LocationPickerScreen';
 import { AddressesScreen } from '../screens/AddressesScreen';
 import { useAuth } from '../store/AuthContext';
-import { colors } from '../theme';
 import { TabNavigator } from './TabNavigator';
 import type { RootStackParamList } from './types';
+import { useTheme } from "../store/ConfigContext";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: colors.primary,
-    background: colors.surface,
-    card: colors.surface,
-    text: colors.ink,
-    border: colors.borderLight,
-  },
-};
-
 export function RootNavigator() {
+  const { colors } = useTheme();
+
+  const MyTheme = React.useMemo(() => ({
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: colors.primary,
+      background: colors.surface,
+      card: colors.surface,
+      text: colors.ink,
+      border: colors.borderLight,
+    },
+  }), [colors]);
+
   const { session } = useAuth();
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={MyTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

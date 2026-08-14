@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, StyleSheet, View } from 'react-native';
 
-import { colors, radii } from '../theme';
+import { radii } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 const THUMB = 26;
 
@@ -27,6 +28,9 @@ export function RangeSlider({
   high: number;
   onChange: (low: number, high: number) => void;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const [width, setWidth] = useState(0);
 
   // Refs mirror the props so the pan handlers (created once) always read the
@@ -115,7 +119,7 @@ export function RangeSlider({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   wrap: { height: THUMB, justifyContent: 'center' },
   track: {
     position: 'absolute',

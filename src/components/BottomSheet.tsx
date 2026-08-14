@@ -12,8 +12,9 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radii, shadow, spacing } from '../theme';
+import { radii, spacing } from '../theme';
 import { SHEET_SPRING } from './motion';
+import { useTheme } from "../store/ConfigContext";
 
 /** Distance the panel travels while opening and closing. */
 const TRAVEL = 620;
@@ -53,6 +54,9 @@ export function BottomSheet({
   maxHeightRatio?: number;
   avoidKeyboard?: boolean;
 }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { height: windowHeight } = useWindowDimensions();
   // `mounted` keeps the modal on screen through the closing animation.
   const [mounted, setMounted] = useState(visible);
@@ -135,7 +139,7 @@ export function BottomSheet({
           onPress={onClose}
         />
 
-        <Animated.View style={[styles.sheet, shadow.sheet, { transform: [{ translateY }] }]}>
+        <Animated.View style={[styles.sheet, theme.shadow.sheet, { transform: [{ translateY }] }]}>
           <View {...pan.panHandlers} style={styles.handleArea}>
             <View style={styles.handle} />
             {header}
@@ -152,7 +156,7 @@ export function BottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
     position: 'absolute',

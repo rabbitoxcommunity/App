@@ -7,9 +7,9 @@ import { Icon } from '../components/Icon';
 import { PrimaryButton, Screen, TextLink } from '../components/ui';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
-import { useConfig } from '../store/ConfigContext';
+import { useConfig, useTheme } from '../store/ConfigContext';
 import { useOrders } from '../store/OrdersContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
 import { notify, NotificationType } from '../utils/haptics';
 
@@ -21,6 +21,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'OrderPlaced'>;
  * code need somewhere to live that the customer can read at their own pace.
  */
 export function OrderPlacedScreen({ route, navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { orderId } = route.params;
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
@@ -133,7 +136,7 @@ export function OrderPlacedScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   root: {
     flex: 1,
     paddingHorizontal: 26,

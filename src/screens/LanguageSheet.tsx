@@ -8,7 +8,8 @@ import { PrimaryButton } from '../components/ui';
 import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
 import { useLocale } from '../i18n/LocaleProvider';
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, spacing, weight } from '../theme';
+import { fontSize, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 const NATIVE_NAME: Record<Language, string> = { en: 'English', ar: 'العربية' };
 
@@ -24,6 +25,9 @@ export function LanguageSheet({
   visible: boolean;
   onClose: () => void;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const insets = useSafeAreaInsets();
   const { language, setLanguage, isSwitching } = useLocale();
@@ -80,7 +84,7 @@ export function LanguageSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: { paddingBottom: 2 },
   title: { fontSize: 19, fontWeight: weight.heavy, color: colors.ink },
   subtitle: {

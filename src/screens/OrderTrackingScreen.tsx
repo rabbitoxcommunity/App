@@ -15,9 +15,9 @@ import { t as tr } from '../data/catalog';
 import { flowFor, type Order, type OrderStatus } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
-import { useConfig } from '../store/ConfigContext';
+import { useConfig, useTheme } from '../store/ConfigContext';
 import { useOrders } from '../store/OrdersContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OrderTracking'>;
 
@@ -34,6 +34,9 @@ const STATUS_ICON: Record<OrderStatus, IconName> = {
 };
 
 export function OrderTrackingScreen({ route, navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const { show } = useToast();
   const { getOrder, activeOrder, markArrived } = useOrders();
@@ -77,6 +80,9 @@ function TrackingBody({
   onArrived: (id: string) => void;
   show: ReturnType<typeof useToast>['show'];
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const { config } = useConfig();
   const isCurbside = order.fulfillment === 'curbside';
@@ -318,7 +324,7 @@ function formatTime(iso: string, language: string): string {
   }).format(date);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   gutter: { paddingHorizontal: spacing.gutter, paddingTop: 4 },
   content: { paddingHorizontal: spacing.gutter, paddingBottom: spacing['2xl'] },
   header: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: 6, paddingBottom: spacing.lg },

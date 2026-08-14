@@ -13,8 +13,9 @@ import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../store/AuthContext';
 import { availableCredit, useOrders } from '../store/OrdersContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney, formatShortDate } from '../utils/format';
+import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyCredit'>;
 
@@ -24,6 +25,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MyCredit'>;
  * must reconcile with their side exactly.
  */
 export function MyCreditScreen({ navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const { show } = useToast();
   const { session } = useAuth();
@@ -206,6 +210,9 @@ export function MyCreditScreen({ navigation }: Props) {
 }
 
 function CreditRow({ entry }: { entry: CreditEntry }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const isPayment = entry.kind === 'payment';
 
@@ -248,7 +255,7 @@ function CreditRow({ entry }: { entry: CreditEntry }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   gutter: { paddingHorizontal: spacing.gutter, paddingTop: 4 },
   content: { paddingHorizontal: spacing.gutter, paddingBottom: spacing['2xl'] },
 

@@ -9,7 +9,8 @@ import { Icon } from '../components/Icon';
 import { PrimaryButton, AppHeader } from '../components/ui';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LocationPicker'>;
 
@@ -28,6 +29,9 @@ type Suggestion = {
 };
 
 export function LocationPickerScreen({ navigation, route }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
@@ -241,7 +245,7 @@ export function LocationPickerScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.surface,

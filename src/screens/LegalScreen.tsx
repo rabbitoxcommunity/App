@@ -5,11 +5,15 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { IconButton, Screen } from '../components/ui';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
-import { colors, fontSize, spacing, weight } from '../theme';
+import { fontSize, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Legal'>;
 
 export function LegalScreen({ route, navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { type } = route.params;
   const { t } = useLang();
 
@@ -31,7 +35,7 @@ export function LegalScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',

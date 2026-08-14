@@ -15,7 +15,7 @@ import { AddressesProvider } from './src/store/AddressesContext';
 import { AuthProvider, useAuth } from './src/store/AuthContext';
 import { CartProvider } from './src/store/CartContext';
 import { CatalogProvider } from './src/store/CatalogContext';
-import { ConfigProvider } from './src/store/ConfigContext';
+import { ConfigProvider, preloadBranding, useConfig } from './src/store/ConfigContext';
 import { OrdersProvider } from './src/store/OrdersContext';
 import { SearchHistoryProvider } from './src/store/SearchHistoryContext';
 import { applyDirection, directionNeedsRestart, reloadApp } from './src/utils/rtl';
@@ -43,7 +43,7 @@ function useBootstrap() {
 
   useEffect(() => {
     (async () => {
-      const resolved = await initI18n();
+      const [resolved] = await Promise.all([initI18n(), preloadBranding()]);
       const shouldBeRTL = isRTLLanguage(resolved);
 
       if (shouldBeRTL !== I18nManager.isRTL) {
@@ -63,10 +63,16 @@ function useBootstrap() {
 }
 
 /** Keeps the splash on screen until the persisted session has been read. */
-function Gate() {
+function AuthGate({ children }: { children: React.ReactNode }) {
   const { isRestoring } = useAuth();
   if (isRestoring) return <SplashScreen />;
-  return <RootNavigator />;
+  return <>{children}</>;
+}
+
+function ConfigGate({ children }: { children: React.ReactNode }) {
+  const { isLoading } = useConfig();
+  if (isLoading) return <SplashScreen />;
+  return <>{children}</>;
 }
 
 export default function App() {
@@ -118,23 +124,28 @@ export default function App() {
       <StatusBar style="dark" />
       <LocaleProvider initialLanguage={language}>
         <AuthProvider>
-          <ConfigProvider>
-            <CatalogProvider>
-              <CartProvider>
-                <AddressesProvider>
-                  <OrdersProvider>
-                    <SearchHistoryProvider>
-                      <ToastProvider>
-                        <Gate />
-                      </ToastProvider>
-                    </SearchHistoryProvider>
-                  </OrdersProvider>
-                </AddressesProvider>
-              </CartProvider>
-            </CatalogProvider>
-          </ConfigProvider>
+          <AuthGate>
+            <ConfigProvider>
+              <ConfigGate>
+                <CatalogProvider>
+                  <CartProvider>
+                    <AddressesProvider>
+                      <OrdersProvider>
+                        <SearchHistoryProvider>
+                          <ToastProvider>
+                            <RootNavigator />
+                          </ToastProvider>
+                        </SearchHistoryProvider>
+                      </OrdersProvider>
+                    </AddressesProvider>
+                  </CartProvider>
+                </CatalogProvider>
+              </ConfigGate>
+            </ConfigProvider>
+          </AuthGate>
         </AuthProvider>
       </LocaleProvider>
     </SafeAreaProvider>
   );
 }
+// force refresh

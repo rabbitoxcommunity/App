@@ -22,8 +22,9 @@ import { useAddToCart } from '../hooks/useAddToCart';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { useCatalog } from '../store/CatalogContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { FilterSheet } from './FilterSheet';
+import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CategoryListing'>;
 
@@ -31,6 +32,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CategoryListing'>;
 const PEEK_BAR_SPACE = 92;
 
 export function CategoryListingScreen({ route, navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { categoryId } = route.params;
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
@@ -212,7 +216,7 @@ export function CategoryListingScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   gutter: { paddingHorizontal: spacing.gutter, paddingTop: 4 },
   chipRow: { gap: spacing.sm, paddingBottom: spacing.md },
   filtersChip: {

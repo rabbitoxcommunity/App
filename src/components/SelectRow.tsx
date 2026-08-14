@@ -1,8 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { PressableScale } from './motion';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * The radio-card used for addresses, delivery times, payment methods, slots and
@@ -46,6 +47,9 @@ export function SelectRow({
   /** Extra line under the subtitle, e.g. the "Set as primary" link. */
   footer?: React.ReactNode;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   // The design leaves 3px under titles that carry a badge or sit in a top-aligned
   // address card, and 2px in the single-line time / payment / slot rows.
   const subtitleGap = alignTop || badge ? 3 : 2;
@@ -107,7 +111,7 @@ export function SelectRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

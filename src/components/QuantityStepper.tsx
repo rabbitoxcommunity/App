@@ -2,8 +2,9 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, radii, weight } from '../theme';
+import { fontSize, radii, weight } from '../theme';
 import { Icon } from './Icon';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * −/N/+ control. `size="sm"` is the cart-row variant, `"md"` the product-detail
@@ -23,6 +24,9 @@ export function QuantityStepper({
   max?: number;
   size?: 'sm' | 'md';
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const md = size === 'md';
   const button = md ? 34 : 26;
@@ -74,7 +78,7 @@ export function QuantityStepper({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',

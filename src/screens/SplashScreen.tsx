@@ -1,8 +1,10 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useContext } from 'react';
+import { Animated, Easing, StyleSheet, Text, View, Image } from 'react-native';
 
 import { Icon } from '../components/Icon';
-import { colors, fontSize, radii, weight } from '../theme';
+import { fontSize, radii, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
+import { ConfigContext } from "../store/ConfigContext";
 
 /**
  * Shown while i18n initialises and the persisted session is read. Purely
@@ -13,6 +15,11 @@ import { colors, fontSize, radii, weight } from '../theme';
  * registered, so the two read as a single continuous screen.
  */
 export function SplashScreen({ message }: { message?: string }) {
+    const { colors } = useTheme();
+    const ctx = useContext(ConfigContext);
+    const logoUrl = ctx?.cachedLogoUrl;
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -65,7 +72,7 @@ export function SplashScreen({ message }: { message?: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.primary, overflow: 'hidden' },
   bloom: { position: 'absolute', borderRadius: 999 },
   bloomTop: {

@@ -8,7 +8,8 @@ import { PrimaryButton } from '../components/ui';
 import { t as tr } from '../data/catalog';
 import type { Localized } from '../data/types';
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 export type CarColour = { hex: string; name: Localized };
 
@@ -26,6 +27,9 @@ export function CarColourSheet({
   onClose: () => void;
   onConfirm: (colour: CarColour) => void;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const [draftHex, setDraftHex] = useState(selectedHex);
@@ -75,7 +79,7 @@ export function CarColourSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: { paddingBottom: 2 },
   title: { fontSize: 19, fontWeight: weight.heavy, color: colors.ink },
   options: {

@@ -10,7 +10,8 @@ import { t as tr } from '../data/catalog';
 import type { Address, Localized } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { AddressDraft } from '../store/AddressesContext';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * Add / edit an address, presented over Checkout (screen 06). The handoff has no
@@ -36,6 +37,9 @@ export function AddressSheet({
   onPickLocation?: () => void;
   pickedLocation?: { latitude: number; longitude: number; label?: string; lines?: string } | null;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
 
@@ -204,6 +208,9 @@ function Field({
   keyboardType?: 'phone-pad';
   autoCapitalize?: 'words';
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   return (
     <View style={[styles.field, multiline && styles.fieldMultiline, error && styles.fieldError]}>
@@ -228,7 +235,7 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   header: { paddingBottom: 2 },
   title: { fontSize: fontSize['2xl'], fontWeight: weight.heavy, color: colors.ink },
   subtitle: {

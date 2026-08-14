@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useLang } from '../hooks/useLang';
 import { useCart } from '../store/CartContext';
-import { useConfig } from '../store/ConfigContext';
-import { colors, fontSize, radii, shadow, spacing, weight } from '../theme';
+import { useConfig, useTheme } from '../store/ConfigContext';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount } from '../utils/format';
 import { Icon } from './Icon';
 import { ImpactStyle, withTap } from '../utils/haptics';
@@ -14,6 +14,9 @@ import { ImpactStyle, withTap } from '../utils/haptics';
  * browsing. Renders nothing when the cart is empty.
  */
 export function CartPeekBar({ onPress, bottom }: { onPress: () => void; bottom: number }) {
+    const { colors, theme } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const { totals } = useCart();
   const { config } = useConfig();
@@ -26,7 +29,7 @@ export function CartPeekBar({ onPress, bottom }: { onPress: () => void; bottom: 
       <Pressable
         accessibilityRole="button"
         onPress={withTap(onPress, ImpactStyle.Medium)}
-        style={({ pressed }) => [styles.bar, shadow.floatingBar, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.bar, theme.shadow.floatingBar, pressed && styles.pressed]}
       >
         <Icon name="basket" size={24} color={colors.onPrimary} />
         <View style={styles.text}>
@@ -49,7 +52,7 @@ export function CartPeekBar({ onPress, bottom }: { onPress: () => void; bottom: 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   wrapper: { position: 'absolute', start: spacing.gutter, end: spacing.gutter },
   bar: {
     height: 60,

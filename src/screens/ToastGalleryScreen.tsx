@@ -8,7 +8,8 @@ import { useToast, type ToastOptions } from '../components/Toast';
 import { AppHeader, Screen } from '../components/ui';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
+import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ToastGallery'>;
 
@@ -18,6 +19,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ToastGallery'>;
  * reproduce the state that triggers each one.
  */
 export function ToastGalleryScreen({ navigation }: Props) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t } = useLang();
   const { show } = useToast();
 
@@ -98,6 +102,9 @@ export function ToastGalleryScreen({ navigation }: Props) {
 
 /** A static rendering of a toast, matching the live component's styling. */
 function ToastPreview({ sample }: { sample: ToastOptions }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const tone = sample.tone ?? 'dark';
   const dark = tone === 'dark' || tone === 'loading';
 
@@ -151,7 +158,7 @@ function ToastPreview({ sample }: { sample: ToastOptions }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   gutter: { paddingHorizontal: spacing.gutter, paddingTop: 4 },
   subtitle: {
     fontSize: fontSize.caption,

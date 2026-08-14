@@ -10,12 +10,13 @@ import {
 } from '../data/catalog';
 import type { Product } from '../data/types';
 import { useLang } from '../hooks/useLang';
-import { colors, fontSize, radii, spacing, weight } from '../theme';
+import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney, formatMoneyFrom } from '../utils/format';
 import { Icon } from './Icon';
 import { ProductImage } from './ProductImage';
 import { StockBadge } from './StockBadge';
 import { ImpactStyle, withTap } from '../utils/haptics';
+import { useTheme } from "../store/ConfigContext";
 
 /**
  * Full-width list row used by the category listing. Out-of-stock rows are
@@ -32,6 +33,9 @@ export function ProductRow({
   onAdd: () => void;
   onNotify?: () => void;
 }) {
+    const { colors } = useTheme();
+    const styles = React.useMemo(() => makeStyles(colors), [colors]);
+
   const { t, language } = useLang();
   const stock = productStock(product);
   const soldOut = !isPurchasable(stock);
@@ -109,7 +113,7 @@ export function ProductRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: any) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
