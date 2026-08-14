@@ -16,6 +16,7 @@ type AddressesContextValue = {
   addAddress: (draft: AddressDraft) => Promise<Address>;
   updateAddress: (id: string, draft: AddressDraft) => Promise<void>;
   setPrimary: (id: string) => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const AddressesContext = createContext<AddressesContextValue | null>(null);
@@ -23,7 +24,7 @@ const AddressesContext = createContext<AddressesContextValue | null>(null);
 export function AddressesProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -39,7 +40,10 @@ export function AddressesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (session) load();
-    else setAddresses([]);
+    else {
+      setAddresses([]);
+      setIsLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
@@ -70,8 +74,9 @@ export function AddressesProvider({ children }: { children: React.ReactNode }) {
       addAddress,
       updateAddress,
       setPrimary,
+      refresh: load,
     }),
-    [addresses, isLoading, addAddress, updateAddress, setPrimary],
+    [addresses, isLoading, addAddress, updateAddress, setPrimary, load],
   );
 
   return <AddressesContext.Provider value={value}>{children}</AddressesContext.Provider>;

@@ -63,7 +63,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [credit, setCredit] = useState<CreditAccount>(EMPTY_CREDIT);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const socketRef = useRef<Socket | null>(null);
 
   const load = useCallback(async () => {
@@ -86,6 +86,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     else {
       setOrders([]);
       setCredit(EMPTY_CREDIT);
+      setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);

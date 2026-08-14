@@ -8,6 +8,7 @@ import { CartPeekBar } from '../components/CartPeekBar';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn } from '../components/motion';
 import { ProductRow } from '../components/ProductRow';
+import { SkeletonList, ProductRowSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { AppHeader, EmptyState, IconButton, Screen } from '../components/ui';
 import { defaultVariant, t as tr } from '../data/catalog';
@@ -35,7 +36,7 @@ export function CategoryListingScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { addProduct } = useAddToCart();
   const { show } = useToast();
-  const { getCategory, productsInCategory, reload } = useCatalog();
+  const { getCategory, productsInCategory, reload, isLoading } = useCatalog();
 
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -138,50 +139,58 @@ export function CategoryListingScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.list,
-          { paddingBottom: PEEK_BAR_SPACE + insets.bottom },
-        ]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-        renderItem={({ item, index }) => (
-          <FadeSlideIn index={index}>
-          <ProductRow
-            product={item}
-            onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-            onAdd={() => addProduct(item)}
-            onNotify={() => {
-              requestStockNotification(defaultVariant(item).id).catch(() => undefined);
-              show({
-                title: t('stock.notifyMe'),
-                body: tr(item.name, language),
-                tone: 'success',
-                icon: 'notifications',
-              });
-            }}
-          />
-          </FadeSlideIn>
-        )}
-        ListEmptyComponent={
-          <EmptyState
-            icon="search"
-            title={t('listing.empty')}
-            body={t('filters.inStockOnlyHint')}
-            actionLabel={t('listing.clearFilters')}
-            onAction={() => setFilters(defaultFilters())}
-          />
-        }
-      />
+      {isLoading ? (
+        <View style={[styles.list, { paddingBottom: PEEK_BAR_SPACE + insets.bottom, paddingTop: 10 }]}>
+          <SkeletonList count={8}>
+            {() => <ProductRowSkeleton />}
+          </SkeletonList>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.list,
+            { paddingBottom: PEEK_BAR_SPACE + insets.bottom },
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+          renderItem={({ item, index }) => (
+            <FadeSlideIn index={index}>
+            <ProductRow
+              product={item}
+              onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+              onAdd={() => addProduct(item)}
+              onNotify={() => {
+                requestStockNotification(defaultVariant(item).id).catch(() => undefined);
+                show({
+                  title: t('stock.notifyMe'),
+                  body: tr(item.name, language),
+                  tone: 'success',
+                  icon: 'notifications',
+                });
+              }}
+            />
+            </FadeSlideIn>
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon="search"
+              title={t('listing.empty')}
+              body={t('filters.inStockOnlyHint')}
+              actionLabel={t('listing.clearFilters')}
+              onAction={() => setFilters(defaultFilters())}
+            />
+          }
+        />
+      )}
 
       <CartPeekBar
         onPress={() => navigation.navigate('Tabs', { screen: 'Cart' })}

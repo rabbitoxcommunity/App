@@ -49,7 +49,7 @@ export function Skeleton({
   style,
 }: {
   width?: number | `${number}%`;
-  height?: number;
+  height?: number | `${number}%`;
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -122,6 +122,16 @@ export function OrderCardSkeleton() {
         <Skeleton width="100%" height={46} radius={radii.xl} style={styles.flex} />
         <Skeleton width={96} height={46} radius={radii.xl} />
       </View>
+    </View>
+  );
+}
+
+/** Stand-in for a category icon on the Home screen. */
+export function CategorySkeleton() {
+  return (
+    <View style={{ alignItems: 'center', gap: 7 }}>
+      <Skeleton width={60} height={60} radius={30} />
+      <Skeleton width={48} height={12} />
     </View>
   );
 }

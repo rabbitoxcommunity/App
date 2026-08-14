@@ -1,9 +1,10 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '../components/Icon';
 import { AnimatedBar, AnimatedNumber, FadeSlideIn, PressableScale } from '../components/motion';
+import { Skeleton, SkeletonList } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { AppHeader, EmptyState, Screen } from '../components/ui';
 import { t as tr } from '../data/catalog';
@@ -26,11 +27,18 @@ export function MyCreditScreen({ navigation }: Props) {
   const { t, language } = useLang();
   const { show } = useToast();
   const { session } = useAuth();
-  const { credit } = useOrders();
+  const { credit, isLoading, refresh } = useOrders();
   const [monthFilter] = useState<string | null>(null);
 
   const headroom = availableCredit(credit);
   const usedRatio = credit.limit > 0 ? credit.balance / credit.limit : 0;
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }, [refresh]);
 
   const entries = useMemo(
     () =>
@@ -78,10 +86,41 @@ export function MyCreditScreen({ navigation }: Props) {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Balance card */}
-        <FadeSlideIn>
-          <View style={styles.balanceCard}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+      >
+        {isLoading ? (
+          <View>
+            <Skeleton width="100%" height={240} radius={radii['5xl'] - 2} />
+            
+            <View style={styles.historyHeader}>
+              <Skeleton width={120} height={20} />
+              <Skeleton width={80} height={20} />
+            </View>
+            
+            <SkeletonList count={4} gap={10}>
+              {() => (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderWidth: 1.5, borderColor: colors.borderLight, borderRadius: radii['2xl'], padding: 13 }}>
+                  <Skeleton width={40} height={40} radius={13} />
+                  <View style={{ flex: 1 }}>
+                    <Skeleton width="80%" height={16} style={{ marginBottom: 6 }} />
+                    <Skeleton width="50%" height={12} />
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Skeleton width={60} height={16} style={{ marginBottom: 6 }} />
+                    <Skeleton width={40} height={14} radius={radii.xs} />
+                  </View>
+                </View>
+              )}
+            </SkeletonList>
+          </View>
+        ) : (
+          <>
+            {/* Balance card */}
+            <FadeSlideIn>
+              <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>{t('credit.outstanding')}</Text>
             <AnimatedNumber
               value={credit.balance}
@@ -155,10 +194,12 @@ export function MyCreditScreen({ navigation }: Props) {
           </View>
         )}
 
-        <View style={styles.trustCard}>
-          <Icon name="shield" size={20} color={colors.textSecondary} />
-          <Text style={styles.trustText}>{t('credit.trustNote')}</Text>
-        </View>
+            <View style={styles.trustCard}>
+              <Icon name="shield" size={20} color={colors.textSecondary} />
+              <Text style={styles.trustText}>{t('credit.trustNote')}</Text>
+            </View>
+          </>
+        )}
       </ScrollView>
     </Screen>
   );

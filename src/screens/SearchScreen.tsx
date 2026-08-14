@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { requestStockNotification } from '../api/notifications';
@@ -8,6 +8,7 @@ import { CartPeekBar } from '../components/CartPeekBar';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn } from '../components/motion';
 import { ProductRow } from '../components/ProductRow';
+import { SkeletonList, ProductRowSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { EmptyState, IconButton, Screen } from '../components/ui';
 import { defaultVariant, t as tr } from '../data/catalog';
@@ -29,11 +30,18 @@ export function SearchScreen({ route, navigation }: Props) {
   const { addProduct } = useAddToCart();
   const { show } = useToast();
   const { recordSearch } = useSearchHistory();
-  const { products: catalogProducts } = useCatalog();
+  const { products: catalogProducts, isLoading, reload } = useCatalog();
 
   const [searchQuery, setSearchQuery] = useState(query);
   const [filters, setFilters] = useState<FilterState>(defaultFilters());
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }, [reload]);
 
   const searchedProducts = useMemo(() => {
     let result = catalogProducts;
@@ -73,42 +81,51 @@ export function SearchScreen({ route, navigation }: Props) {
         </Pressable>
       </View>
 
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: 92 + insets.bottom }]}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => (
-          <FadeSlideIn index={index}>
-            <ProductRow
-              product={item}
-              onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-              onAdd={() => addProduct(item)}
-              onNotify={() => {
-                requestStockNotification(defaultVariant(item).id).catch(() => undefined);
-                show({
-                  title: t('stock.notifyMe'),
-                  body: tr(item.name, language),
-                  tone: 'success',
-                  icon: 'notifications',
-                });
+      {isLoading ? (
+        <View style={[styles.list, { paddingBottom: 92 + insets.bottom, paddingTop: 10 }]}>
+          <SkeletonList count={6}>
+            {() => <ProductRowSkeleton />}
+          </SkeletonList>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[styles.list, { paddingBottom: 92 + insets.bottom }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+          renderItem={({ item, index }) => (
+            <FadeSlideIn index={index}>
+              <ProductRow
+                product={item}
+                onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                onAdd={() => addProduct(item)}
+                onNotify={() => {
+                  requestStockNotification(defaultVariant(item).id).catch(() => undefined);
+                  show({
+                    title: t('stock.notifyMe'),
+                    body: tr(item.name, language),
+                    tone: 'success',
+                    icon: 'notifications',
+                  });
+                }}
+              />
+            </FadeSlideIn>
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon="search"
+              title={t('listing.empty')}
+              body={t('filters.inStockOnlyHint')}
+              actionLabel={t('listing.clearFilters')}
+              onAction={() => {
+                setFilters(defaultFilters());
+                setSearchQuery('');
               }}
             />
-          </FadeSlideIn>
-        )}
-        ListEmptyComponent={
-          <EmptyState
-            icon="search"
-            title={t('listing.empty')}
-            body={t('filters.inStockOnlyHint')}
-            actionLabel={t('listing.clearFilters')}
-            onAction={() => {
-              setFilters(defaultFilters());
-              setSearchQuery('');
-            }}
-          />
-        }
-      />
+          }
+        />
+      )}
 
       <CartPeekBar
         onPress={() => navigation.navigate('Tabs', { screen: 'Cart' })}

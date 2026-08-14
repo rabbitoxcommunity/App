@@ -1,13 +1,13 @@
  import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Dimensions, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { getHome, type Banner } from '../api/home';
 import { CategoryImage } from '../components/CategoryImage';
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { ProductCard } from '../components/ProductCard';
-import { Skeleton } from '../components/Skeleton';
+import { Skeleton, SkeletonList, CategorySkeleton, ProductCardSkeleton } from '../components/Skeleton';
 import { Screen, IconButton, SectionHeader, TextLink } from '../components/ui';
 import { t as tr } from '../data/catalog';
 import type { Category } from '../data/types';
@@ -27,7 +27,7 @@ export function HomeScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { addProduct } = useAddToCart();
-  const { categories, popularProducts } = useCatalog();
+  const { categories, popularProducts, isLoading, reload } = useCatalog();
   const { addresses, primaryId } = useAddresses();
   const { history, recordSearch, clearHistory } = useSearchHistory();
   const tabBarHeight = useGlassTabBarHeight();
@@ -38,6 +38,13 @@ export function HomeScreen() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [activeAdIndex, setActiveAdIndex] = useState(0);
   const [sliderWidth, setSliderWidth] = useState(Dimensions.get('window').width - 52);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }, [reload]);
 
   useEffect(() => {
     getHome()
@@ -96,6 +103,7 @@ export function HomeScreen() {
         // keyboard and never reaches the search button — you would have to tap
         // it twice. "handled" still dismisses on taps that hit no child.
         keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
       >
         {/* Address + notifications */}
         <View style={styles.topRow}>
@@ -192,20 +200,28 @@ export function HomeScreen() {
           onAction={() => navigation.navigate('Tabs', { screen: 'Categories' })}
         />
         <View style={styles.categoryGrid}>
-          {categories.map((category, index) => (
-            <FadeSlideIn key={category.id} index={index} style={styles.categoryItem}>
-              <PressableScale
-                accessibilityRole="button"
-                onPress={() => openCategory(category)}
-                style={styles.categoryPress}
-              >
-                <CategoryImage uri={category.imageUrl} icon={category.icon} />
-                <Text style={styles.categoryLabel} numberOfLines={2}>
-                  {tr(category.name, language)}
-                </Text>
-              </PressableScale>
-            </FadeSlideIn>
-          ))}
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, index) => (
+              <View key={index} style={styles.categoryItem}>
+                <CategorySkeleton />
+              </View>
+            ))
+          ) : (
+            categories.map((category, index) => (
+              <FadeSlideIn key={category.id} index={index} style={styles.categoryItem}>
+                <PressableScale
+                  accessibilityRole="button"
+                  onPress={() => openCategory(category)}
+                  style={styles.categoryPress}
+                >
+                  <CategoryImage uri={category.imageUrl} icon={category.icon} />
+                  <Text style={styles.categoryLabel} numberOfLines={2}>
+                    {tr(category.name, language)}
+                  </Text>
+                </PressableScale>
+              </FadeSlideIn>
+            ))
+          )}
         </View>
 
         {/* Merchandising banners (CMS-managed, §4.18) */}
@@ -261,15 +277,23 @@ export function HomeScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.rail}
         >
-          {popularFiltered.map((product, index) => (
-            <FadeSlideIn key={product.id} index={index}>
-              <ProductCard
-                product={product}
-                onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
-                onAdd={() => addProduct(product)}
-              />
-            </FadeSlideIn>
-          ))}
+          {isLoading ? (
+            <View style={{ flexDirection: 'row', gap: 14 }}>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <ProductCardSkeleton key={index} />
+              ))}
+            </View>
+          ) : (
+            popularFiltered.map((product, index) => (
+              <FadeSlideIn key={product.id} index={index}>
+                <ProductCard
+                  product={product}
+                  onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+                  onAdd={() => addProduct(product)}
+                />
+              </FadeSlideIn>
+            ))
+          )}
         </ScrollView>
       </ScrollView>
 

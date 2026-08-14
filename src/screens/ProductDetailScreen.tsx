@@ -1,11 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { Dimensions, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
 import { CrossFade, PressableScale } from '../components/motion';
 import { ProductImage } from '../components/ProductImage';
+import { Skeleton } from '../components/Skeleton';
 import { QuantityStepper } from '../components/QuantityStepper';
 import { StockBadge } from '../components/StockBadge';
 import { IconButton, PrimaryButton, Screen } from '../components/ui';
@@ -35,7 +36,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const { addVariant } = useAddToCart();
-  const { getProduct } = useCatalog();
+  const { getProduct, isLoading, reload } = useCatalog();
   const { config } = useConfig();
   const deliveryEtaMinutes = config?.settings.deliveryEtaMinutes ?? 30;
 
@@ -55,6 +56,13 @@ export function ProductDetailScreen({ route, navigation }: Props) {
     return { ...start.optionIds };
   });
   const [quantity, setQuantity] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  }, [reload]);
 
   const variant = useMemo(() => {
     if (!product) return undefined;
@@ -64,6 +72,36 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   }, [product, selection]);
 
   if (!product || !variant) {
+    if (isLoading) {
+      return (
+        <Screen>
+          <View style={styles.hero}>
+            <Skeleton width="100%" height="100%" radius={0} />
+            <View style={styles.heroButtons} pointerEvents="box-none">
+              <IconButton
+                name="back"
+                onPress={navigation.goBack}
+                accessibilityLabel={t('common.back')}
+                background={colors.surface}
+              />
+            </View>
+          </View>
+          <View style={styles.gutter}>
+            <Skeleton width="70%" height={34} style={{ marginBottom: 10 }} />
+            <Skeleton width="30%" height={40} style={{ marginBottom: 40 }} />
+            <Skeleton width={100} height={20} style={{ marginBottom: 14 }} />
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 40 }}>
+              <Skeleton width={90} height={46} radius={radii.lg} />
+              <Skeleton width={90} height={46} radius={radii.lg} />
+            </View>
+            <View style={styles.quantityRow}>
+              <Skeleton width={80} height={20} />
+              <Skeleton width={120} height={48} radius={radii.pill} />
+            </View>
+          </View>
+        </Screen>
+      );
+    }
     return (
       <Screen>
         <View style={styles.gutter}>
@@ -103,7 +141,11 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
   return (
     <Screen>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+      >
         {/* Hero */}
         <View style={styles.hero}>
           <ProductImage

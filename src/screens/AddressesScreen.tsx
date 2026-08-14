@@ -1,11 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { SelectRow } from '../components/SelectRow';
+import { Skeleton, SkeletonList } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { AppHeader, Screen, TextLink, EmptyState } from '../components/ui';
 import { t as tr } from '../data/catalog';
@@ -23,11 +24,18 @@ export function AddressesScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { show } = useToast();
   
-  const { addresses, addAddress, updateAddress, setPrimary } = useAddresses();
+  const { addresses, addAddress, updateAddress, setPrimary, isLoading, refresh } = useAddresses();
 
   const [editing, setEditing] = useState<Address | null>(null);
   const [addressSheetOpen, setAddressSheetOpen] = useState(false);
   const [pickedLocation, setPickedLocation] = useState<{ latitude: number; longitude: number; label?: string; lines?: string } | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  }, [refresh]);
 
   const openAddAddress = () => {
     setEditing(null);
@@ -80,7 +88,27 @@ export function AddressesScreen({ navigation }: Props) {
         />
       </View>
 
-      {addresses.length === 0 ? (
+      {isLoading ? (
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+        >
+          <SkeletonList count={3} gap={10}>
+            {() => (
+              <View style={{ borderWidth: 1.5, borderColor: colors.borderLight, borderRadius: radii['3xl'], padding: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Skeleton width={120} height={20} />
+                  <Skeleton width={40} height={20} />
+                </View>
+                <Skeleton width="90%" height={14} style={{ marginBottom: 6 }} />
+                <Skeleton width="60%" height={14} style={{ marginBottom: 16 }} />
+                <Skeleton width={80} height={14} />
+              </View>
+            )}
+          </SkeletonList>
+        </ScrollView>
+      ) : addresses.length === 0 ? (
         <View style={styles.emptyContainer}>
           <EmptyState
             icon="location"
@@ -94,6 +122,7 @@ export function AddressesScreen({ navigation }: Props) {
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
         >
           <View style={styles.stack}>
             {addresses.map((address, index) => (
