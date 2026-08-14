@@ -130,7 +130,7 @@ export function OrderCardSkeleton() {
 export function CategorySkeleton() {
   return (
     <View style={{ alignItems: 'center', gap: 7 }}>
-      <Skeleton width={60} height={60} radius={30} />
+      <Skeleton width={60} height={60} radius={radii['3xl']} />
       <Skeleton width={48} height={12} />
     </View>
   );
