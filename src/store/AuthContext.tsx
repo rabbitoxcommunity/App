@@ -19,6 +19,7 @@ type AuthContextValue = {
   requestOtp: (phone: string, channel: 'sms' | 'whatsapp') => Promise<string>;
   verifyOtp: (challengeId: string, code: string) => Promise<void>;
   signOut: () => Promise<void>;
+  reloadSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -73,9 +74,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (refreshToken) await auth.logout(refreshToken);
   }, []);
 
+  const reloadSession = useCallback(async () => {
+    const customer = await getMe();
+    setSession({ customer });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ session, isRestoring, requestOtp, verifyOtp, signOut }),
-    [session, isRestoring, requestOtp, verifyOtp, signOut],
+    () => ({ session, isRestoring, requestOtp, verifyOtp, signOut, reloadSession }),
+    [session, isRestoring, requestOtp, verifyOtp, signOut, reloadSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

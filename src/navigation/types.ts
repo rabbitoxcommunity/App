@@ -14,6 +14,7 @@ export type TabParamList = {
 export type RootStackParamList = {
   Splash: undefined;
   Login: undefined;
+  PersonalInfo: undefined;
   Legal: { type: 'terms' | 'privacy' };
   Tabs: NavigatorScreenParams<TabParamList>;
   CategoryListing: { categoryId: string };

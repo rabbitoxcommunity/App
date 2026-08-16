@@ -14,6 +14,7 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { ToastGalleryScreen } from '../screens/ToastGalleryScreen';
 import { LocationPickerScreen } from '../screens/LocationPickerScreen';
 import { AddressesScreen } from '../screens/AddressesScreen';
+import { PersonalInfoScreen } from '../screens/PersonalInfoScreen';
 import { useAuth } from '../store/AuthContext';
 import { TabNavigator } from './TabNavigator';
 import type { RootStackParamList } from './types';
@@ -50,30 +51,37 @@ export function RootNavigator() {
         }}
       >
         {session ? (
-          <Stack.Group>
-            <Stack.Screen name="Tabs" component={TabNavigator} options={{ animation: 'fade' }} />
-            <Stack.Screen name="CategoryListing" component={CategoryListingScreen} />
-            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
-            <Stack.Screen name="Checkout" component={CheckoutScreen} />
-            <Stack.Screen
-              name="OrderPlaced"
-              component={OrderPlacedScreen}
-              // The order exists now: swiping back to a checkout that already
-              // submitted would be wrong, so the gesture is off here.
-              options={{ animation: 'fade', gestureEnabled: false }}
-            />
-            <Stack.Screen
-              name="OrderTracking"
-              component={OrderTrackingScreen}
-              // Coming from checkout this is a completion, not a push.
-              options={{ animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen name="MyCredit" component={MyCreditScreen} />
-            <Stack.Screen name="ToastGallery" component={ToastGalleryScreen} />
-            <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'fade' }} />
-            <Stack.Screen name="LocationPicker" component={LocationPickerScreen} />
-            <Stack.Screen name="Addresses" component={AddressesScreen} />
-          </Stack.Group>
+          session.customer?.name === 'New Customer' ? (
+            <Stack.Group>
+              <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} options={{ animation: 'fade' }} />
+            </Stack.Group>
+          ) : (
+            <Stack.Group>
+              <Stack.Screen name="Tabs" component={TabNavigator} options={{ animation: 'fade' }} />
+              <Stack.Screen name="CategoryListing" component={CategoryListingScreen} />
+              <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+              <Stack.Screen name="Checkout" component={CheckoutScreen} />
+              <Stack.Screen
+                name="OrderPlaced"
+                component={OrderPlacedScreen}
+                // The order exists now: swiping back to a checkout that already
+                // submitted would be wrong, so the gesture is off here.
+                options={{ animation: 'fade', gestureEnabled: false }}
+              />
+              <Stack.Screen
+                name="OrderTracking"
+                component={OrderTrackingScreen}
+                // Coming from checkout this is a completion, not a push.
+                options={{ animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen name="MyCredit" component={MyCreditScreen} />
+              <Stack.Screen name="ToastGallery" component={ToastGalleryScreen} />
+              <Stack.Screen name="Search" component={SearchScreen} options={{ animation: 'fade' }} />
+              <Stack.Screen name="LocationPicker" component={LocationPickerScreen} />
+              <Stack.Screen name="Addresses" component={AddressesScreen} />
+              <Stack.Screen name="PersonalInfo" component={PersonalInfoScreen} />
+            </Stack.Group>
+          )
         ) : (
           <Stack.Group>
             <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'fade' }} />

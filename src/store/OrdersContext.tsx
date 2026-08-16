@@ -13,7 +13,7 @@ import * as ordersApi from '../api/orders';
 import { mapOrder, type RawOrder } from '../api/orders';
 import { priceCart } from '../api/cart';
 import { getCreditAccount } from '../api/credit';
-import { getAccessToken, idempotencyKey, SOCKET_BASE_URL, TENANT_ID } from '../api/client';
+import { getAccessToken, idempotencyKey, SOCKET_BASE_URL } from '../api/client';
 import type {
   CarProfile,
   CreditAccount,
@@ -22,6 +22,7 @@ import type {
   PaymentMethodKind,
 } from '../data/types';
 import { useAuth } from './AuthContext';
+import { useTenant } from './TenantContext';
 
 const isFinished = (order: Order) =>
   order.status === 'delivered' || order.status === 'handed_over' || order.status === 'cancelled';
@@ -61,6 +62,7 @@ const OrdersContext = createContext<OrdersContextValue | null>(null);
 
 export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
+  const { tenant } = useTenant();
   const [orders, setOrders] = useState<Order[]>([]);
   const [credit, setCredit] = useState<CreditAccount>(EMPTY_CREDIT);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,11 +105,11 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   // because `load()` above already established the real state, and the next
   // pull-to-refresh re-syncs regardless.
   useEffect(() => {
-    if (!session || !TENANT_ID) return;
+    if (!session || !tenant?.id) return;
     const token = getAccessToken();
     if (!token) return;
 
-    const socket = io(`${SOCKET_BASE_URL}/t/${TENANT_ID}`, {
+    const socket = io(`${SOCKET_BASE_URL}/t/${tenant.id}`, {
       auth: { token },
       transports: ['websocket'],
     });
@@ -121,7 +123,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [session, mergeOrder]);
+  }, [session, tenant?.id, mergeOrder]);
 
   const activeOrder = useMemo(() => orders.find((o) => !isFinished(o)) ?? null, [orders]);
   const pastOrders = useMemo(() => orders.filter(isFinished), [orders]);

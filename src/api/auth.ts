@@ -3,6 +3,7 @@ import { api, ApiError, setTokens } from './client';
 export type Customer = {
   id: string;
   name: string;
+  email?: string;
   phone: string;
   language: 'en' | 'ar';
   /** Only shop-approved customers see "Pay Later (Credit)" at checkout. */

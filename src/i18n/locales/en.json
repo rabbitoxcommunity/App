@@ -354,10 +354,22 @@
     "credit": "My credit",
     "language": "Language",
     "help": "Help & support",
+    "switchShop": "Switch shop",
+    "switchShopConfirm": "Switch to a different shop?",
+    "switchShopBody": "You'll be signed out and asked to pick a shop again.",
     "signOut": "Sign out",
     "signOutConfirm": "Sign out of FreshCart?",
     "signOutBody": "Your cart is saved on this device.",
     "cancel": "Cancel"
+  },
+  "shopPicker": {
+    "title": "Choose your shop",
+    "subtitle": "Pick the supermarket you want to order from.",
+    "searchPlaceholder": "Search shops",
+    "empty": "No shops are available right now.",
+    "noResults": "No shops match \"{{query}}\".",
+    "loadError": "Couldn't load shops. Check your connection and try again.",
+    "retry": "Retry"
   },
   "languageSheet": {
     "title": "Choose your language",

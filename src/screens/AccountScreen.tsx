@@ -12,6 +12,7 @@ import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useAuth } from '../store/AuthContext';
 import { useOrders } from '../store/OrdersContext';
+import { useTenant } from '../store/TenantContext';
 import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney } from '../utils/format';
 import { LanguageSheet } from './LanguageSheet';
@@ -25,6 +26,7 @@ export function AccountScreen() {
   const { t, language } = useLang();
   const { language: current } = useLocale();
   const { session, signOut } = useAuth();
+  const { clearTenant } = useTenant();
   const { credit } = useOrders();
   const { show } = useToast();
   const navigation = useNavigation<RootNavigation>();
@@ -69,6 +71,22 @@ export function AccountScreen() {
       label: t('account.help'),
       onPress: () => show({ title: t('account.help'), icon: 'support' }),
     },
+    {
+      key: 'switchShop',
+      icon: 'storefront',
+      label: t('account.switchShop'),
+      onPress: () =>
+        Alert.alert(t('account.switchShopConfirm'), t('account.switchShopBody'), [
+          { text: t('account.cancel'), style: 'cancel' },
+          {
+            text: t('account.switchShop'),
+            onPress: async () => {
+              await signOut();
+              await clearTenant();
+            },
+          },
+        ]),
+    },
   ];
 
   // Screen 03c is a design/QA reference rather than a customer destination, so
@@ -103,7 +121,7 @@ export function AccountScreen() {
           <PressableScale
             accessibilityRole="button"
             activeScale={0.99}
-            onPress={() => show({ title: session?.customer.name ?? '', icon: 'account' })}
+            onPress={() => navigation.navigate('PersonalInfo')}
             style={styles.profile}
           >
             <View style={styles.avatar}>

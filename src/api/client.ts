@@ -5,13 +5,13 @@ import { Platform } from 'react-native';
 
 /**
  * Thin fetch wrapper for the Node/Express + MongoDB backend (BACKEND-DESIGN
- * §10). White-label builds (A1) bake the API origin and tenant identity into
- * `app.json`'s `extra` at build time — there is no runtime tenant picker.
+ * §10). The API origin is still baked into `app.json`'s `extra` at build
+ * time, but the tenant is not — this is a shared app across every shop on
+ * the platform, chosen at runtime via the shop picker (TenantContext) and
+ * persisted here the same way the refresh token is.
  */
 export const API_BASE_URL: string =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'http://localhost:4000/api/v1';
-
-export const TENANT_ID: string = (Constants.expoConfig?.extra?.tenantId as string | undefined) ?? '';
 
 /** §14 — Socket.io is mounted on the same origin as the HTTP API, one namespace per tenant. */
 export const SOCKET_BASE_URL: string = API_BASE_URL.replace(/\/api(\/v\d+)?\/?$/, '');
@@ -33,6 +33,7 @@ export class ApiError extends Error {
 // web, so the web build falls back to AsyncStorage there — same trust model a
 // browser tab already has (localStorage), just not a regression from it.
 const REFRESH_TOKEN_KEY = 'fc_refresh_token';
+const TENANT_ID_KEY = 'fc_tenant_id';
 const secureStorage = {
   getItemAsync: (key: string) =>
     Platform.OS === 'web' ? AsyncStorage.getItem(key) : SecureStore.getItemAsync(key),
@@ -44,6 +45,7 @@ const secureStorage = {
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
+let tenantId: string | null = null;
 
 export function getAccessToken(): string | null {
   return accessToken;
@@ -51,6 +53,24 @@ export function getAccessToken(): string | null {
 
 export function getRefreshToken(): string | null {
   return refreshToken;
+}
+
+export function getTenantId(): string | null {
+  return tenantId;
+}
+
+export async function setTenantId(id: string | null): Promise<void> {
+  tenantId = id;
+  if (id) {
+    await secureStorage.setItemAsync(TENANT_ID_KEY, id);
+  } else {
+    await secureStorage.deleteItemAsync(TENANT_ID_KEY);
+  }
+}
+
+export async function loadPersistedTenantId(): Promise<string | null> {
+  tenantId = await secureStorage.getItemAsync(TENANT_ID_KEY);
+  return tenantId;
 }
 
 export async function loadPersistedRefreshToken(): Promise<string | null> {
@@ -128,7 +148,7 @@ export async function request<T>(path: string, init: RequestOptions = {}): Promi
       ...rest,
       headers: {
         'Content-Type': 'application/json',
-        'X-Tenant-Id': TENANT_ID,
+        ...(tenantId ? { 'X-Tenant-Id': tenantId } : {}),
         ...(language ? { 'Accept-Language': language } : {}),
         ...(accessToken && !skipAuth ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...headers,

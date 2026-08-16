@@ -10,6 +10,7 @@ import { ToastProvider } from './src/components/Toast';
 import { initI18n, isRTLLanguage, type Language } from './src/i18n';
 import { LocaleProvider } from './src/i18n/LocaleProvider';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { ShopPickerScreen } from './src/screens/ShopPickerScreen';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { AddressesProvider } from './src/store/AddressesContext';
 import { AuthProvider, useAuth } from './src/store/AuthContext';
@@ -18,6 +19,7 @@ import { CatalogProvider } from './src/store/CatalogContext';
 import { ConfigProvider, preloadBranding, useConfig } from './src/store/ConfigContext';
 import { OrdersProvider } from './src/store/OrdersContext';
 import { SearchHistoryProvider } from './src/store/SearchHistoryContext';
+import { TenantProvider, useTenant } from './src/store/TenantContext';
 import { applyDirection, directionNeedsRestart, reloadApp } from './src/utils/rtl';
 
 /**
@@ -60,6 +62,20 @@ function useBootstrap() {
   }, []);
 
   return language;
+}
+
+/**
+ * The app is shared across every shop on the platform — this has to resolve
+ * before AuthProvider even attempts to restore a session, since "am I signed
+ * in" is meaningless without knowing which tenant to ask. No tenant chosen
+ * yet renders the picker directly (no navigation route, same pattern as
+ * AuthGate/ConfigGate below).
+ */
+function TenantGate({ children }: { children: React.ReactNode }) {
+  const { tenant, isRestoring } = useTenant();
+  if (isRestoring) return <SplashScreen />;
+  if (!tenant) return <ShopPickerScreen />;
+  return <>{children}</>;
 }
 
 /** Keeps the splash on screen until the persisted session has been read. */
@@ -123,27 +139,31 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <LocaleProvider initialLanguage={language}>
-        <AuthProvider>
-          <AuthGate>
-            <ConfigProvider>
-              <ConfigGate>
-                <CatalogProvider>
-                  <CartProvider>
-                    <AddressesProvider>
-                      <OrdersProvider>
-                        <SearchHistoryProvider>
-                          <ToastProvider>
-                            <RootNavigator />
-                          </ToastProvider>
-                        </SearchHistoryProvider>
-                      </OrdersProvider>
-                    </AddressesProvider>
-                  </CartProvider>
-                </CatalogProvider>
-              </ConfigGate>
-            </ConfigProvider>
-          </AuthGate>
-        </AuthProvider>
+        <TenantProvider>
+          <TenantGate>
+            <AuthProvider>
+              <AuthGate>
+                <ConfigProvider>
+                  <ConfigGate>
+                    <CatalogProvider>
+                      <CartProvider>
+                        <AddressesProvider>
+                          <OrdersProvider>
+                            <SearchHistoryProvider>
+                              <ToastProvider>
+                                <RootNavigator />
+                              </ToastProvider>
+                            </SearchHistoryProvider>
+                          </OrdersProvider>
+                        </AddressesProvider>
+                      </CartProvider>
+                    </CatalogProvider>
+                  </ConfigGate>
+                </ConfigProvider>
+              </AuthGate>
+            </AuthProvider>
+          </TenantGate>
+        </TenantProvider>
       </LocaleProvider>
     </SafeAreaProvider>
   );
