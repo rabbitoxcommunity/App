@@ -61,7 +61,11 @@ export function SearchScreen({ route, navigation }: Props) {
   return (
     <Screen>
       <View style={styles.header}>
-        <IconButton name="back" onPress={() => navigation.goBack()} accessibilityLabel={t('common.back')} />
+        <IconButton
+          name="back"
+          onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Tabs', { screen: 'Home' }))}
+          accessibilityLabel={t('common.back')}
+        />
         <View style={styles.searchField}>
           <Icon name="search" size={21} color={colors.placeholder} />
           <TextInput

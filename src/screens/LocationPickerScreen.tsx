@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, Alert, TextInput, Keyboard, FlatList, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator, TextInput, Keyboard, FlatList, TouchableOpacity } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { PrimaryButton, AppHeader } from '../components/ui';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { fontSize, radii, spacing, weight } from '../theme';
+import { infoAlert } from '../utils/confirmAlert';
 import { useTheme } from "../store/ConfigContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LocationPicker'>;
@@ -99,15 +100,15 @@ export function LocationPickerScreen({ navigation, route }: Props) {
         linesStr = [first?.street, first?.city, first?.region, first?.country].filter(Boolean).join(', ') || 'Selected from map';
       }
 
-      route.params.onLocationPicked({ 
-        latitude: region.latitude, 
+      route.params.onLocationPicked({
+        latitude: region.latitude,
         longitude: region.longitude,
         label: labelStr,
-        lines: linesStr 
+        lines: linesStr
       });
-      navigation.goBack();
+      if (navigation.canGoBack()) navigation.goBack();
     } catch (e) {
-      Alert.alert('Error', 'Failed to save location address');
+      infoAlert('Error', 'Failed to save location address');
     } finally {
       setSaving(false);
     }

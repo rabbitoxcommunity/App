@@ -57,7 +57,7 @@ export function PersonalInfoScreen() {
       if (reloadSession) {
          await reloadSession();
       }
-      if (isUpdate) {
+      if (isUpdate && navigation.canGoBack()) {
         navigation.goBack();
       }
     } catch (e: any) {

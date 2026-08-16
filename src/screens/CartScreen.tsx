@@ -1,7 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -26,6 +25,7 @@ import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCart, type ResolvedCartLine } from '../store/CartContext';
 import { fontSize, radii, spacing, weight } from '../theme';
+import { confirmAlert } from '../utils/confirmAlert';
 import { formatMoney } from '../utils/format';
 import { ImpactStyle, withTap } from '../utils/haptics';
 import { useTheme } from "../store/ConfigContext";
@@ -92,15 +92,16 @@ export function CartScreen() {
     }
   };
 
-  const confirmClear = () =>
-    Alert.alert(
-      t('cart.clearConfirmTitle'),
-      t('cart.clearConfirmBody', { count: totals.itemCount }),
-      [
-        { text: t('cart.cancel'), style: 'cancel' },
-        { text: t('cart.clear'), style: 'destructive', onPress: clear },
-      ],
-    );
+  const confirmClear = async () => {
+    const ok = await confirmAlert({
+      title: t('cart.clearConfirmTitle'),
+      body: t('cart.clearConfirmBody', { count: totals.itemCount }),
+      cancelLabel: t('cart.cancel'),
+      confirmLabel: t('cart.clear'),
+      destructive: true,
+    });
+    if (ok) clear();
+  };
 
   if (lines.length === 0) {
     return (

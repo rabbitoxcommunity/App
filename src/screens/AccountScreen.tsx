@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
@@ -14,6 +14,7 @@ import { useAuth } from '../store/AuthContext';
 import { useOrders } from '../store/OrdersContext';
 import { useTenant } from '../store/TenantContext';
 import { fontSize, radii, spacing, weight } from '../theme';
+import { confirmAlert } from '../utils/confirmAlert';
 import { formatMoney } from '../utils/format';
 import { LanguageSheet } from './LanguageSheet';
 import { useTheme } from "../store/ConfigContext";
@@ -71,27 +72,29 @@ export function AccountScreen() {
       label: t('account.help'),
       onPress: () => show({ title: t('account.help'), icon: 'support' }),
     },
-    {
-      key: 'switchShop',
-      icon: 'storefront',
-      label: t('account.switchShop'),
-      onPress: () =>
-        Alert.alert(t('account.switchShopConfirm'), t('account.switchShopBody'), [
-          { text: t('account.cancel'), style: 'cancel' },
-          {
-            text: t('account.switchShop'),
-            onPress: async () => {
-              await signOut();
-              await clearTenant();
-            },
-          },
-        ]),
-    },
+    // Hidden for now — re-enable by uncommenting this row.
+    // {
+    //   key: 'switchShop',
+    //   icon: 'storefront',
+    //   label: t('account.switchShop'),
+    //   onPress: async () => {
+    //     const ok = await confirmAlert({
+    //       title: t('account.switchShopConfirm'),
+    //       body: t('account.switchShopBody'),
+    //       cancelLabel: t('account.cancel'),
+    //       confirmLabel: t('account.switchShop'),
+    //     });
+    //     if (!ok) return;
+    //     await signOut();
+    //     await clearTenant();
+    //   },
+    // },
   ];
 
   // Screen 03c is a design/QA reference rather than a customer destination, so
   // it is only reachable from a development build.
-  if (__DEV__) {
+  // Hidden for now — re-enable by uncommenting this block.
+  if (false && __DEV__) {
     rows.push({
       key: 'toasts',
       icon: 'bell-active',
@@ -100,11 +103,16 @@ export function AccountScreen() {
     });
   }
 
-  const confirmSignOut = () =>
-    Alert.alert(t('account.signOutConfirm'), t('account.signOutBody'), [
-      { text: t('account.cancel'), style: 'cancel' },
-      { text: t('account.signOut'), style: 'destructive', onPress: signOut },
-    ]);
+  const confirmSignOut = async () => {
+    const ok = await confirmAlert({
+      title: t('account.signOutConfirm'),
+      body: t('account.signOutBody'),
+      cancelLabel: t('account.cancel'),
+      confirmLabel: t('account.signOut'),
+      destructive: true,
+    });
+    if (ok) await signOut();
+  };
 
   return (
     <Screen>
