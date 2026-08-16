@@ -1,7 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { io, type Socket } from 'socket.io-client';
 
 import { listCategories, listProducts } from '../api/catalog';
+import { SOCKET_BASE_URL } from '../api/client';
 import type { Category, Product } from '../data/types';
+import { useTenant } from './TenantContext';
 
 type CatalogContextValue = {
   categories: Category[];
@@ -33,6 +36,7 @@ async function fetchAllProducts(): Promise<Product[]> {
 }
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
+  const { tenant } = useTenant();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,6 +58,22 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // §14 — categories/products are public storefront data, so this connects
+  // without a token, same as ConfigContext's payment-methods socket. A new
+  // category, a product edit, or a Quick Stock toggle all land here live.
+  useEffect(() => {
+    if (!tenant?.id) return;
+    const socket: Socket = io(`${SOCKET_BASE_URL}/t/${tenant.id}`, {
+      transports: ['websocket'],
+    });
+    socket.on('category.changed', () => reload());
+    socket.on('product.changed', () => reload());
+    socket.on('stock.changed', () => reload());
+    return () => {
+      socket.disconnect();
+    };
+  }, [tenant?.id, reload]);
 
   const getProduct = useCallback((id: string) => products.find((p) => p.id === id), [products]);
   const getCategory = useCallback((id: string) => categories.find((c) => c.id === id), [categories]);

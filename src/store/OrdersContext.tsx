@@ -44,6 +44,8 @@ type OrdersContextValue = {
   orders: Order[];
   /** The order currently in flight, if any. */
   activeOrder: Order | null;
+  /** Every order still in flight — a customer can have more than one at a time. */
+  activeOrders: Order[];
   pastOrders: Order[];
   credit: CreditAccount;
   /** True until the first load of orders/credit has completed. */
@@ -93,13 +95,23 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  const mergeOrder = useCallback((raw: RawOrder) => {
-    const order = mapOrder(raw);
+  /**
+   * Insert-or-replace by id. EVERY path that adds an order must go through
+   * this: `placeOrder`'s own result and the `order.created` socket event race
+   * each other (the server emits the moment the write commits, while the
+   * client is still awaiting the HTTP response — and a curbside order awaits
+   * a second `setArrival` round trip after that). An unconditional prepend on
+   * either side puts the same order in the list twice, which React reports as
+   * a duplicate-key error and may then render or drop unpredictably.
+   */
+  const upsertOrder = useCallback((order: Order) => {
     setOrders((prev) => {
       const exists = prev.some((o) => o.id === order.id);
       return exists ? prev.map((o) => (o.id === order.id ? order : o)) : [order, ...prev];
     });
   }, []);
+
+  const mergeOrder = useCallback((raw: RawOrder) => upsertOrder(mapOrder(raw)), [upsertOrder]);
 
   // §14 — sockets carry notifications, never authority: a missed event is fine,
   // because `load()` above already established the real state, and the next
@@ -110,35 +122,64 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     if (!token) return;
 
     const socket = io(`${SOCKET_BASE_URL}/t/${tenant.id}`, {
-      auth: { token },
+      // A function, not the captured `{ token }` — socket.io re-invokes it on
+      // every reconnect, so a drop that happens after the access token rotated
+      // reconnects with the current one instead of an expired one (which the
+      // server rejects, leaving the socket permanently dead until app restart).
+      auth: (cb: (data: Record<string, unknown>) => void) => cb({ token: getAccessToken() }),
       transports: ['websocket'],
     });
     socketRef.current = socket;
 
+    // `order.created` matters for orders placed on another device — the local
+    // placeOrder path already merges its own result optimistically.
+    socket.on('order.created', (raw: RawOrder) => mergeOrder(raw));
     socket.on('order.status', (raw: RawOrder) => mergeOrder(raw));
     socket.on('order.arrival', (raw: RawOrder) => mergeOrder(raw));
     socket.on('order.assigned', (raw: RawOrder) => mergeOrder(raw));
+    socket.on('order.lines', (raw: RawOrder) => mergeOrder(raw));
+    // The socket payload is the raw account doc (fils, no derived `entries`) —
+    // not the app's mapped shape, so re-fetch through the same path `load()`
+    // uses rather than setting it directly.
+    socket.on('credit.changed', () => {
+      getCreditAccount()
+        .then(setCredit)
+        .catch(() => undefined);
+    });
+
+    // Anything that changed while the socket was down emitted events nobody
+    // received, so re-read rather than trust the stale in-memory list.
+    socket.io.on('reconnect', () => {
+      load();
+    });
 
     return () => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [session, tenant?.id, mergeOrder]);
+  }, [session, tenant?.id, mergeOrder, load]);
 
-  const activeOrder = useMemo(() => orders.find((o) => !isFinished(o)) ?? null, [orders]);
+  /** Every order still in flight — a customer can legitimately have several at once. */
+  const activeOrders = useMemo(() => orders.filter((o) => !isFinished(o)), [orders]);
+  /** The most recent in-flight order, for screens that track a single one (e.g. OrderTracking's no-param fallback). */
+  const activeOrder = useMemo(() => activeOrders[0] ?? null, [activeOrders]);
   const pastOrders = useMemo(() => orders.filter(isFinished), [orders]);
 
-  // The active order is the one screen a customer watches live; joining its
-  // room is what makes the events above actually arrive (§14 — rooms are opt-in).
+  // Watch every in-flight order, not just the newest — a customer with
+  // several orders open needs live status on all of them. The server also
+  // routes order events to this customer's own `customer:<id>` room, so this
+  // is belt-and-braces (it additionally covers curbside `order.arrival`
+  // pings, which are keyed to the order room).
+  const activeIdsKey = activeOrders.map((o) => o.id).join(',');
   useEffect(() => {
     const socket = socketRef.current;
-    const id = activeOrder?.id;
-    if (!socket || !id) return;
-    socket.emit('order:watch', id);
+    if (!socket || !activeIdsKey) return;
+    const ids = activeIdsKey.split(',');
+    for (const id of ids) socket.emit('order:watch', id);
     return () => {
-      socket.emit('order:unwatch', id);
+      for (const id of ids) socket.emit('order:unwatch', id);
     };
-  }, [activeOrder?.id]);
+  }, [activeIdsKey]);
 
   const getOrder = useCallback((id: string) => orders.find((o) => o.id === id), [orders]);
 
@@ -168,34 +209,37 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       finalOrder = await ordersApi.setArrival(order.id, input.arrival);
     }
 
-    setOrders((prev) => [finalOrder, ...prev]);
+    upsertOrder(finalOrder);
     if (finalOrder.paymentKind === 'credit') {
       getCreditAccount()
         .then(setCredit)
         .catch(() => undefined);
     }
     return finalOrder;
-  }, []);
+  }, [upsertOrder]);
 
-  const markArrived = useCallback(async (orderId: string) => {
-    const order = await ordersApi.markArrived(orderId);
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? order : o)));
-  }, []);
+  const markArrived = useCallback(
+    async (orderId: string) => upsertOrder(await ordersApi.markArrived(orderId)),
+    [upsertOrder],
+  );
 
-  const setArrival = useCallback(async (orderId: string, arrival: 'on_way' | 'near') => {
-    const order = await ordersApi.setArrival(orderId, arrival);
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? order : o)));
-  }, []);
+  const setArrival = useCallback(
+    async (orderId: string, arrival: 'on_way' | 'near') =>
+      upsertOrder(await ordersApi.setArrival(orderId, arrival)),
+    [upsertOrder],
+  );
 
-  const cancelOrder = useCallback(async (orderId: string, reason: string) => {
-    const order = await ordersApi.cancelOrder(orderId, reason);
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? order : o)));
-  }, []);
+  const cancelOrder = useCallback(
+    async (orderId: string, reason: string) =>
+      upsertOrder(await ordersApi.cancelOrder(orderId, reason)),
+    [upsertOrder],
+  );
 
   const value = useMemo<OrdersContextValue>(
     () => ({
       orders,
       activeOrder,
+      activeOrders,
       pastOrders,
       credit,
       isLoading,
@@ -206,7 +250,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       setArrival,
       cancelOrder,
     }),
-    [orders, activeOrder, pastOrders, credit, isLoading, getOrder, load, placeOrder, markArrived, setArrival, cancelOrder],
+    [orders, activeOrder, activeOrders, pastOrders, credit, isLoading, getOrder, load, placeOrder, markArrived, setArrival, cancelOrder],
   );
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;

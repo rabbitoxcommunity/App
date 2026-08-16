@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { io, type Socket } from 'socket.io-client';
 
 import { getConfig, type TenantConfig } from '../api/config';
 import { listPaymentMethods } from '../api/paymentMethods';
+import { SOCKET_BASE_URL } from '../api/client';
 import type { PaymentMethod } from '../data/types';
 import { colors as baseColors, theme as baseTheme, Theme } from '../theme';
 import { generateDynamicTheme, ThemeColors } from '../theme/colorUtils';
+import { useTenant } from './TenantContext';
 
 type ConfigContextValue = {
   config: TenantConfig | null;
@@ -36,6 +39,7 @@ export async function preloadBranding() {
  * once at launch rather than per screen.
  */
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
+  const { tenant } = useTenant();
   const [config, setConfig] = useState<TenantConfig | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -61,6 +65,22 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // §14 — payment methods are public, tenant-scoped storefront data, so this
+  // connects without a token (the namespace allows anonymous sockets for
+  // exactly this). A missed event is fine: `load()` above already set the
+  // real state, and pull-to-refresh screens re-sync regardless.
+  useEffect(() => {
+    if (!tenant?.id) return;
+    const socket: Socket = io(`${SOCKET_BASE_URL}/t/${tenant.id}`, {
+      transports: ['websocket'],
+    });
+    socket.on('payment-method.changed', () => load());
+    return () => {
+      socket.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenant?.id]);
 
   const primaryHex = config?.branding?.primaryHex ?? initialBranding?.primaryHex;
   const themeColors = useMemo(() => generateDynamicTheme(baseColors, primaryHex), [primaryHex]);

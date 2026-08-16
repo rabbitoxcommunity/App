@@ -29,14 +29,14 @@ export function OrdersScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { show } = useToast();
-  const { activeOrder, pastOrders, refresh, isLoading } = useOrders();
+  const { activeOrders, pastOrders, refresh, isLoading } = useOrders();
   const { addItem } = useCart();
   const tabBarHeight = useGlassTabBarHeight();
 
   const [tab, setTab] = useState<'past' | 'active'>('past');
   /** The order whose receipt is open, or `null` when the sheet is closed. */
   const [receiptOrder, setReceiptOrder] = useState<Order | null>(null);
-  const orders = tab === 'active' ? (activeOrder ? [activeOrder] : []) : pastOrders;
+  const orders = tab === 'active' ? activeOrders : pastOrders;
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -108,7 +108,7 @@ export function OrdersScreen() {
           style={[styles.tab, tab === 'active' && styles.tabActive]}
         >
           <Text style={[styles.tabLabel, tab === 'active' && styles.tabLabelActive]}>
-            {t('orders.active', { count: activeOrder ? 1 : 0 })}
+            {t('orders.active', { count: activeOrders.length })}
           </Text>
         </PressableScale>
       </View>
@@ -143,7 +143,10 @@ export function OrdersScreen() {
         >
           {orders.map((order, index) => {
             const cancelled = order.status === 'cancelled';
-            const live = order === activeOrder;
+            // Status-derived rather than identity-compared against a single
+            // "the" active order — every in-flight order renders as live.
+            const live =
+              order.status !== 'delivered' && order.status !== 'handed_over' && !cancelled;
             const thumbs = order.lines.slice(0, THUMBS);
             const overflow = order.lines.length - thumbs.length;
 
