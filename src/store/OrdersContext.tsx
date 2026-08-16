@@ -12,7 +12,7 @@ import { io, type Socket } from 'socket.io-client';
 import * as ordersApi from '../api/orders';
 import { mapOrder, type RawOrder } from '../api/orders';
 import { priceCart } from '../api/cart';
-import { getCreditAccount } from '../api/credit';
+import { getCreditAccount, listCreditEntries } from '../api/credit';
 import { getAccessToken, idempotencyKey, SOCKET_BASE_URL } from '../api/client';
 import type {
   CarProfile,
@@ -27,7 +27,13 @@ import { useTenant } from './TenantContext';
 const isFinished = (order: Order) =>
   order.status === 'delivered' || order.status === 'handed_over' || order.status === 'cancelled';
 
-const EMPTY_CREDIT: CreditAccount = { limit: 0, balance: 0, dueDate: new Date().toISOString(), entries: [] };
+const EMPTY_CREDIT: CreditAccount = {
+  limit: 0,
+  balance: 0,
+  dueDate: new Date().toISOString(),
+  entries: [],
+  entriesCursor: null,
+};
 
 export type PlaceOrderInput = {
   lines: Array<{ variantId: string; quantity: number }>;
@@ -46,6 +52,14 @@ type OrdersContextValue = {
   activeOrder: Order | null;
   /** Every order still in flight — a customer can have more than one at a time. */
   activeOrders: Order[];
+  /** True while an older page of history is being appended. */
+  isLoadingMore: boolean;
+  /** False once the whole history has been paged in. */
+  hasMoreOrders: boolean;
+  /** Appends the next page of older orders. */
+  loadMoreOrders: () => Promise<void>;
+  /** Appends the next page of older credit-ledger entries. */
+  loadMoreCreditEntries: () => Promise<void>;
   pastOrders: Order[];
   credit: CreditAccount;
   /** True until the first load of orders/credit has completed. */
@@ -68,27 +82,74 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [credit, setCredit] = useState<CreditAccount>(EMPTY_CREDIT);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [ordersCursor, setOrdersCursor] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  /** Guards against onEndReached firing repeatedly for the same page. */
+  const loadingMoreRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!session) return;
     setIsLoading(true);
     try {
-      const [list, account] = await Promise.all([
+      const [page, account] = await Promise.all([
         ordersApi.listOrders(),
         getCreditAccount().catch(() => EMPTY_CREDIT),
       ]);
-      setOrders(list);
+      // A refresh restarts paging from the top rather than appending to a
+      // list that may now be stale.
+      setOrders(page.orders);
+      setOrdersCursor(page.nextCursor);
       setCredit(account);
     } finally {
       setIsLoading(false);
     }
   }, [session]);
 
+  const loadMoreOrders = useCallback(async () => {
+    if (!ordersCursor || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    try {
+      const page = await ordersApi.listOrders(ordersCursor);
+      setOrders((prev) => {
+        // The socket may have inserted one of these while the request was in
+        // flight, so append only genuinely new ids.
+        const seen = new Set(prev.map((o) => o.id));
+        return [...prev, ...page.orders.filter((o) => !seen.has(o.id))];
+      });
+      setOrdersCursor(page.nextCursor);
+    } catch {
+      // Leave the cursor intact so the next scroll retries this same page.
+    } finally {
+      loadingMoreRef.current = false;
+      setIsLoadingMore(false);
+    }
+  }, [ordersCursor]);
+
+  const loadMoreCreditEntries = useCallback(async () => {
+    const cursor = credit.entriesCursor;
+    if (!cursor) return;
+    try {
+      const page = await listCreditEntries(cursor);
+      setCredit((prev) => {
+        const seen = new Set(prev.entries.map((e) => e.id));
+        return {
+          ...prev,
+          entries: [...prev.entries, ...page.entries.filter((e) => !seen.has(e.id))],
+          entriesCursor: page.nextCursor,
+        };
+      });
+    } catch {
+      // Same as above — keep the cursor so the next scroll retries.
+    }
+  }, [credit.entriesCursor]);
+
   useEffect(() => {
     if (session) load();
     else {
       setOrders([]);
+      setOrdersCursor(null);
       setCredit(EMPTY_CREDIT);
       setIsLoading(false);
     }
@@ -107,7 +168,15 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const upsertOrder = useCallback((order: Order) => {
     setOrders((prev) => {
       const exists = prev.some((o) => o.id === order.id);
-      return exists ? prev.map((o) => (o.id === order.id ? order : o)) : [order, ...prev];
+      if (exists) return prev.map((o) => (o.id === order.id ? order : o));
+      // Insert by date rather than always prepending: the list is newest-first
+      // (the server sorts by placedAt desc), and an event can arrive for an
+      // OLD order that isn't loaded yet — blindly prepending would park it at
+      // the top, above orders newer than it.
+      const at = new Date(order.placedAt).getTime();
+      const idx = prev.findIndex((o) => new Date(o.placedAt).getTime() < at);
+      if (idx === -1) return [...prev, order];
+      return [...prev.slice(0, idx), order, ...prev.slice(idx)];
     });
   }, []);
 
@@ -243,6 +312,10 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       pastOrders,
       credit,
       isLoading,
+      isLoadingMore,
+      hasMoreOrders: ordersCursor !== null,
+      loadMoreOrders,
+      loadMoreCreditEntries,
       getOrder,
       refresh: load,
       placeOrder,
@@ -250,7 +323,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       setArrival,
       cancelOrder,
     }),
-    [orders, activeOrder, activeOrders, pastOrders, credit, isLoading, getOrder, load, placeOrder, markArrived, setArrival, cancelOrder],
+    [orders, activeOrder, activeOrders, pastOrders, credit, isLoading, isLoadingMore, ordersCursor, loadMoreOrders, loadMoreCreditEntries, getOrder, load, placeOrder, markArrived, setArrival, cancelOrder],
   );
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;

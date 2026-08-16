@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo, useState, useCallback } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '../components/Icon';
 import { AnimatedBar, AnimatedNumber, FadeSlideIn, PressableScale } from '../components/motion';
@@ -31,8 +31,25 @@ export function MyCreditScreen({ navigation }: Props) {
   const { t, language } = useLang();
   const { show } = useToast();
   const { session } = useAuth();
-  const { credit, isLoading, refresh } = useOrders();
+  const { credit, isLoading, refresh, loadMoreCreditEntries } = useOrders();
   const [monthFilter] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  /** onScroll fires continuously, so a page must not be requested twice. */
+  const loadingMoreRef = useRef(false);
+
+  const hasMoreEntries = credit.entriesCursor !== null;
+
+  const loadMoreEntries = useCallback(async () => {
+    if (!hasMoreEntries || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      await loadMoreCreditEntries();
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [hasMoreEntries, loadMoreCreditEntries]);
 
   const headroom = availableCredit(credit);
   const usedRatio = credit.limit > 0 ? credit.balance / credit.limit : 0;
@@ -94,6 +111,16 @@ export function MyCreditScreen({ navigation }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />}
+        // The ledger is only the first page; older entries load as the customer
+        // reaches the end. This screen keeps a ScrollView (rather than a
+        // FlatList) because the history sits between a tall balance header and
+        // a trailing trust card, so near-bottom detection is done by hand.
+        scrollEventThrottle={16}
+        onScroll={({ nativeEvent }) => {
+          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+          const nearBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 240;
+          if (nearBottom) loadMoreEntries();
+        }}
       >
         {isLoading ? (
           <View>
@@ -195,6 +222,11 @@ export function MyCreditScreen({ navigation }: Props) {
                 <CreditRow entry={entry} />
               </FadeSlideIn>
             ))}
+            {loadingMore && (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            )}
           </View>
         )}
 
@@ -325,6 +357,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   monthLabel: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primary },
 
   entries: { gap: 10 },
+  loadingMore: { paddingVertical: 18, alignItems: 'center' },
   entryRow: {
     flexDirection: 'row',
     alignItems: 'center',

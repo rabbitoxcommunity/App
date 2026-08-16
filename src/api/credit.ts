@@ -51,18 +51,33 @@ function mapEntries(raw: RawCreditEntry[]): CreditEntry[] {
   }));
 }
 
-/** Combines GET /credit + GET /credit/entries — the app shows them as one account. */
+const ENTRY_PAGE = 25;
+
+/** Combines GET /credit + the first page of GET /credit/entries — the app shows them as one account. */
 export async function getCreditAccount(): Promise<CreditAccount> {
   const [account, page] = await Promise.all([
     api.get<RawCreditAccount>('/credit'),
-    api.get<{ items: RawCreditEntry[]; nextCursor: string | null }>('/credit/entries?limit=100'),
+    api.get<{ items: RawCreditEntry[]; nextCursor: string | null }>(`/credit/entries?limit=${ENTRY_PAGE}`),
   ]);
   return {
     limit: fromFils(account.limit),
     balance: fromFils(account.balance),
     dueDate: account.dueDate,
     entries: mapEntries(page.items),
+    entriesCursor: page.nextCursor,
   };
+}
+
+/**
+ * The next page of ledger entries. `settled` is derived by walking the list
+ * oldest-first, so it must be recomputed over the combined set rather than
+ * per-page — the caller passes the already-loaded raw entries back in.
+ */
+export async function listCreditEntries(cursor: string): Promise<{ entries: CreditEntry[]; nextCursor: string | null }> {
+  const page = await api.get<{ items: RawCreditEntry[]; nextCursor: string | null }>(
+    `/credit/entries?limit=${ENTRY_PAGE}&cursor=${encodeURIComponent(cursor)}`,
+  );
+  return { entries: mapEntries(page.items), nextCursor: page.nextCursor };
 }
 
 /** Not a real payment gateway (D12, §9.7) — recording a credit settlement is an admin/staff action; the app has no direct "pay now" endpoint. */

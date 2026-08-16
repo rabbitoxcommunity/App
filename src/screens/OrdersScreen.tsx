@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
@@ -29,7 +29,8 @@ export function OrdersScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { show } = useToast();
-  const { activeOrders, pastOrders, refresh, isLoading } = useOrders();
+  const { activeOrders, pastOrders, refresh, isLoading, isLoadingMore, hasMoreOrders, loadMoreOrders } =
+    useOrders();
   const { addItem } = useCart();
   const tabBarHeight = useGlassTabBarHeight();
 
@@ -136,12 +137,23 @@ export function OrdersScreen() {
           />
         </ScrollView>
       ) : (
-        <ScrollView
+        <FlatList
+          data={orders}
+          keyExtractor={(order) => order.id}
           contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight }]}
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
-        >
-          {orders.map((order, index) => {
+          // Only the history tab pages — in-flight orders are all loaded already.
+          onEndReached={tab === 'past' && hasMoreOrders ? loadMoreOrders : undefined}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            tab === 'past' && isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : null
+          }
+          renderItem={({ item: order, index }) => {
             const cancelled = order.status === 'cancelled';
             // Status-derived rather than identity-compared against a single
             // "the" active order — every in-flight order renders as live.
@@ -151,7 +163,7 @@ export function OrdersScreen() {
             const overflow = order.lines.length - thumbs.length;
 
             return (
-              <FadeSlideIn key={order.id} index={index}>
+              <FadeSlideIn index={index}>
                 <PressableScale
                   accessibilityRole="button"
                   accessibilityLabel={`#${order.reference}`}
@@ -255,8 +267,8 @@ export function OrdersScreen() {
                 </PressableScale>
               </FadeSlideIn>
             );
-          })}
-        </ScrollView>
+          }}
+        />
       )}
 
       <ReceiptSheet order={receiptOrder} onClose={() => setReceiptOrder(null)} />
@@ -300,6 +312,7 @@ const makeStyles = (colors: any) => StyleSheet.create({
   tabLabelActive: { color: colors.onPrimary, fontWeight: weight.heavy },
 
   list: { paddingHorizontal: spacing.gutter, paddingBottom: spacing['2xl'], gap: spacing.md },
+  footerLoading: { paddingVertical: spacing.lg, alignItems: 'center' },
   /** `flexGrow` so the empty state still centres in the viewport it scrolls in. */
   emptyContent: { flexGrow: 1, justifyContent: 'center' },
   card: {

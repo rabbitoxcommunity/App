@@ -222,4 +222,6 @@ export type CreditAccount = {
   balance: number;
   dueDate: string;
   entries: CreditEntry[];
+  /** Continuation token for older ledger entries; null when fully loaded. */
+  entriesCursor: string | null;
 };

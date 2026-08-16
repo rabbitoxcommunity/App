@@ -99,9 +99,14 @@ export async function placeOrder(payload: PlaceOrderPayload, idempotencyKey: str
   return mapOrder(raw);
 }
 
-export async function listOrders(): Promise<Order[]> {
-  const { items } = await api.get<{ items: RawOrder[]; nextCursor: string | null }>('/orders?limit=50');
-  return items.map(mapOrder);
+/** One page of history, newest first. `cursor` continues from a previous page's `nextCursor`. */
+export async function listOrders(cursor?: string | null): Promise<{ orders: Order[]; nextCursor: string | null }> {
+  const params = new URLSearchParams({ limit: '20' });
+  if (cursor) params.set('cursor', cursor);
+  const { items, nextCursor } = await api.get<{ items: RawOrder[]; nextCursor: string | null }>(
+    `/orders?${params.toString()}`,
+  );
+  return { orders: items.map(mapOrder), nextCursor };
 }
 
 export async function getOrder(id: string): Promise<Order> {
