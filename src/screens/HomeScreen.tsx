@@ -24,6 +24,16 @@ import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatShortDate } from '../utils/format';
 import { useTheme } from "../store/ConfigContext";
 
+/**
+ * Home shows a two-row teaser of the catalogue's categories; "See all" opens the
+ * Categories tab for the rest. Uncapped, this rendered every category — 89 of
+ * them on a real shop, about 23 rows, burying the popular-products rail and the
+ * banners beneath it. The loading skeleton already drew exactly these 8.
+ */
+const HOME_CATEGORY_COLUMNS = 4;
+const HOME_CATEGORY_ROWS = 2;
+const HOME_CATEGORY_COUNT = HOME_CATEGORY_COLUMNS * HOME_CATEGORY_ROWS;
+
 export function HomeScreen() {
     const { colors, theme } = useTheme();
     const styles = React.useMemo(() => makeStyles(colors, theme), [colors, theme]);
@@ -205,13 +215,13 @@ export function HomeScreen() {
         />
         <View style={styles.categoryGrid}>
           {isLoading ? (
-            Array.from({ length: 8 }).map((_, index) => (
+            Array.from({ length: HOME_CATEGORY_COUNT }).map((_, index) => (
               <View key={index} style={styles.categoryItem}>
                 <CategorySkeleton />
               </View>
             ))
           ) : (
-            categories.map((category, index) => (
+            categories.slice(0, HOME_CATEGORY_COUNT).map((category, index) => (
               <FadeSlideIn key={category.id} index={index} style={styles.categoryItem}>
                 <PressableScale
                   accessibilityRole="button"

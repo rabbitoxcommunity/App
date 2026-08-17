@@ -18,19 +18,29 @@ import { ImpactStyle, withTap } from '../utils/haptics';
 import { useTheme } from "../store/ConfigContext";
 
 export const PRODUCT_CARD_WIDTH = 152;
+const IMAGE_HEIGHT = 104;
 
 /**
- * The 152px-wide card used in Home's horizontal rails. One card per *parent*
- * product — variant selection happens on the detail screen.
+ * One card per *parent* product — variant selection happens on the detail
+ * screen.
+ *
+ * Fixed at 152px for Home's horizontal rails; pass `fluid` to let it fill a
+ * grid column instead (the category listing).
  */
 export function ProductCard({
   product,
   onPress,
   onAdd,
+  onNotify,
+  fluid = false,
 }: {
   product: Product;
   onPress: () => void;
   onAdd: () => void;
+  /** Sold-out cards become tappable "notify me" when provided; inert without it. */
+  onNotify?: () => void;
+  /** Stretch to the container's width instead of the fixed rail width. */
+  fluid?: boolean;
 }) {
     const { colors } = useTheme();
     const styles = React.useMemo(() => makeStyles(colors), [colors]);
@@ -39,27 +49,41 @@ export function ProductCard({
   const stock = productStock(product);
   const soldOut = !isPurchasable(stock);
   const { min, ranged } = displayPrice(product);
+  const subtitle = tr(product.subtitle, language).trim();
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={tr(product.name, language)}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        fluid ? styles.cardFluid : styles.cardFixed,
+        pressed && styles.pressed,
+      ]}
     >
       <ProductImage
         uri={product.imageUrl}
         icon={product.icon}
+        height={IMAGE_HEIGHT}
         radius={radii.xl}
         dimmed={soldOut}
-        style={styles.image}
       />
-      <Text style={[styles.name, soldOut && styles.mutedText]} numberOfLines={1}>
+      <Text
+        style={[styles.name, soldOut && styles.mutedText]}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
         {tr(product.name, language)}
       </Text>
-      <Text style={styles.subtitle} numberOfLines={1}>
-        {tr(product.subtitle, language)}
-      </Text>
+      {/* Every imported product carries subtitle: {en:'',ar:''}, and an empty
+          <Text> still occupies a line plus its margin — a dead gap between the
+          title and the price. Render it only when there is something to show. */}
+      {subtitle ? (
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
 
       <View style={styles.footer}>
         {/* "From AED 8.00" is too wide for a 152px card, so the qualifier
@@ -72,9 +96,21 @@ export function ProductCard({
         </View>
 
         {soldOut ? (
-          <View style={styles.notifyPill}>
-            <Text style={styles.notifyLabel}>{t('stock.notifyMe')}</Text>
-          </View>
+          onNotify ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('stock.notifyMe')}
+              onPress={withTap(onNotify, ImpactStyle.Light)}
+              hitSlop={6}
+              style={({ pressed }) => [styles.notifyPill, pressed && styles.pressed]}
+            >
+              <Text style={styles.notifyLabel}>{t('stock.notifyMe')}</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.notifyPill}>
+              <Text style={styles.notifyLabel}>{t('stock.notifyMe')}</Text>
+            </View>
+          )
         ) : (
           <Pressable
             accessibilityRole="button"
@@ -98,19 +134,28 @@ export function ProductCard({
 
 const makeStyles = (colors: any) => StyleSheet.create({
   card: {
-    width: PRODUCT_CARD_WIDTH,
     borderWidth: 1.5,
     borderColor: colors.borderLight,
     borderRadius: radii['4xl'],
     padding: spacing.md,
   },
+  // Width is applied by exactly one of these two, never overridden. Setting
+  // `width: undefined` in an override does NOT unset it — flattening skips
+  // undefined values, so the fixed width survived and the card stayed 152px
+  // inside a 186px grid cell.
+  cardFixed: { width: PRODUCT_CARD_WIDTH },
+  cardFluid: { width: '100%' },
   pressed: { opacity: 0.85 },
-  image: { height: 104, width: '100%', flex: 0 },
   name: {
     fontSize: fontSize.body,
     fontWeight: weight.heavy,
     color: colors.ink,
     marginTop: 10,
+    // Two lines are reserved rather than merely allowed: a one-line name beside
+    // a two-line one would push their prices to different heights, so the row
+    // would read as ragged. 18 * 2 = 36.
+    lineHeight: 18,
+    minHeight: 36,
   },
   subtitle: {
     fontSize: fontSize.caption,

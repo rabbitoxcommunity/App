@@ -70,9 +70,12 @@ export function ProductRow({
         <Text style={[styles.name, soldOut && styles.nameSoldOut]} numberOfLines={1}>
           {tr(product.name, language)}
         </Text>
-        <Text style={[styles.subtitle, soldOut && styles.subtitleSoldOut]} numberOfLines={1}>
-          {tr(product.subtitle, language)}
-        </Text>
+        {/* Same empty-subtitle gap as the card — see ProductCard. */}
+        {tr(product.subtitle, language).trim() ? (
+          <Text style={[styles.subtitle, soldOut && styles.subtitleSoldOut]} numberOfLines={1}>
+            {tr(product.subtitle, language)}
+          </Text>
+        ) : null}
         <View style={styles.badgeRow}>
           <StockBadge status={stock} lowStockCount={lowStockCount} />
         </View>

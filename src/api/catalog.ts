@@ -103,11 +103,13 @@ export type ListProductsParams = {
   sort?: 'popularity' | 'newest' | 'priceAsc' | 'priceDesc';
   minPrice?: number;
   maxPrice?: number;
+  /** Hide products with no sellable variant — the storefront listing default. */
+  inStock?: boolean;
   page?: number;
   limit?: number;
 };
 
-function toQuery(params: Record<string, string | number | undefined>): string {
+function toQuery(params: Record<string, string | number | boolean | undefined>): string {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined) q.set(k, String(v));

@@ -13,6 +13,7 @@ export function ProductImage({
   uri,
   icon,
   size,
+  height,
   radius = 14,
   dimmed,
   style,
@@ -21,6 +22,15 @@ export function ProductImage({
   icon: IconName;
   /** Square side length; omit to fill the parent. */
   size?: number;
+  /**
+   * Fixed height with full width — for card layouts that want a letterbox slot
+   * rather than a square. Set this instead of overriding `flex` through `style`:
+   * the default below uses the `flex` shorthand, and on react-native-web a
+   * shorthand and its longhands become separate CSS classes whose order, not the
+   * style array's, decides the winner. Overriding it from a parent silently
+   * lost, collapsing the slot to 0–40px.
+   */
+  height?: number;
   radius?: number;
   /** Out-of-stock products render faded, per the design. */
   dimmed?: boolean;
@@ -35,7 +45,11 @@ export function ProductImage({
 
   const box: ViewStyle = {
     borderRadius: radius,
-    ...(size ? { width: size, height: size } : { flex: 1 }),
+    ...(size
+      ? { width: size, height: size }
+      : height != null
+        ? { width: '100%', height }
+        : { flex: 1 }),
     ...(dimmed ? { opacity: 0.45 } : null),
   };
 
