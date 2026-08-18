@@ -1,7 +1,7 @@
 import { api, fromFils } from './client';
 import type { CreditAccount, CreditEntry, Localized } from '../data/types';
 
-type RawCreditAccount = { limit: number; balance: number; dueDate: string };
+type RawCreditAccount = { limit: number | null; balance: number; dueDate: string };
 type RawCreditEntry = {
   id: string;
   kind: 'charge' | 'payment';
@@ -60,7 +60,9 @@ export async function getCreditAccount(): Promise<CreditAccount> {
     api.get<{ items: RawCreditEntry[]; nextCursor: string | null }>(`/credit/entries?limit=${ENTRY_PAGE}`),
   ]);
   return {
-    limit: fromFils(account.limit),
+    // null is unlimited and must survive the conversion — fromFils(null)
+    // would produce 0, i.e. the exact opposite meaning.
+    limit: account.limit == null ? null : fromFils(account.limit),
     balance: fromFils(account.balance),
     dueDate: account.dueDate,
     entries: mapEntries(page.items),

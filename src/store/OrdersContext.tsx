@@ -27,6 +27,8 @@ import { useTenant } from './TenantContext';
 const isFinished = (order: Order) =>
   order.status === 'delivered' || order.status === 'handed_over' || order.status === 'cancelled';
 
+// limit 0, not null: a customer with no credit account has NO credit, which
+// is the opposite of unlimited.
 const EMPTY_CREDIT: CreditAccount = {
   limit: 0,
   balance: 0,
@@ -335,8 +337,19 @@ export function useOrders(): OrdersContextValue {
   return ctx;
 }
 
-/** Credit headroom, used by checkout to decide whether Pay Later is offerable. */
+/**
+ * Credit headroom, used by checkout to decide whether Pay Later is offerable.
+ * Returns Infinity for an unlimited account (`limit === null`), so the
+ * `headroom < total` comparisons that gate Pay Later keep working unchanged.
+ * Anything that DISPLAYS this must check isUnlimitedCredit first — Infinity
+ * has no sensible currency rendering.
+ */
 export const availableCredit = (credit: CreditAccount): number =>
-  Math.round(Math.max(0, credit.limit - credit.balance) * 100) / 100;
+  credit.limit == null
+    ? Number.POSITIVE_INFINITY
+    : Math.round(Math.max(0, credit.limit - credit.balance) * 100) / 100;
+
+/** True when the shop approved this customer without a ceiling. */
+export const isUnlimitedCredit = (credit: CreditAccount): boolean => credit.limit == null;
 
 export type { PaymentMethodKind, FulfillmentType };

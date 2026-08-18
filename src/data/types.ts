@@ -224,7 +224,8 @@ export type CreditEntry = {
 };
 
 export type CreditAccount = {
-  limit: number;
+  /** fils→AED. NULL means the shop granted this customer UNLIMITED credit. */
+  limit: number | null;
   balance: number;
   dueDate: string;
   entries: CreditEntry[];

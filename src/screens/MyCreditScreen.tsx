@@ -12,7 +12,7 @@ import type { CreditEntry } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../store/AuthContext';
-import { availableCredit, useOrders } from '../store/OrdersContext';
+import { availableCredit, isUnlimitedCredit, useOrders } from '../store/OrdersContext';
 import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney, formatShortDate } from '../utils/format';
 import { useTheme } from "../store/ConfigContext";
@@ -51,8 +51,11 @@ export function MyCreditScreen({ navigation }: Props) {
     }
   }, [hasMoreEntries, loadMoreCreditEntries]);
 
+  const unlimited = isUnlimitedCredit(credit);
   const headroom = availableCredit(credit);
-  const usedRatio = credit.limit > 0 ? credit.balance / credit.limit : 0;
+  // An unlimited account has no bar to fill — a ratio against no ceiling is
+  // meaningless, so it stays empty rather than showing a misleading fraction.
+  const usedRatio = unlimited || !credit.limit ? 0 : credit.balance / credit.limit;
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -165,12 +168,18 @@ export function MyCreditScreen({ navigation }: Props) {
             <AnimatedBar progress={usedRatio} height={8} style={styles.balanceBar} />
 
             <View style={styles.balanceMeta}>
-              <Text style={styles.balanceMetaText}>
-                {t('credit.available', { available: formatAmount(headroom) })}
-              </Text>
-              <Text style={styles.balanceMetaText}>
-                {t('credit.limit', { limit: formatAmount(credit.limit) })}
-              </Text>
+              {unlimited ? (
+                <Text style={styles.balanceMetaText}>{t('credit.unlimited')}</Text>
+              ) : (
+                <>
+                  <Text style={styles.balanceMetaText}>
+                    {t('credit.available', { available: formatAmount(headroom) })}
+                  </Text>
+                  <Text style={styles.balanceMetaText}>
+                    {t('credit.limit', { limit: formatAmount(credit.limit ?? 0) })}
+                  </Text>
+                </>
+              )}
             </View>
 
             {/* No online payment gateway in v1 (BACKEND-DESIGN D12) — settling a

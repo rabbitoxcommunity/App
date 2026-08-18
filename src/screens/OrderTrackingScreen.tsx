@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '../components/Icon';
 import { ProductImage } from '../components/ProductImage';
@@ -19,6 +19,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useCatalog } from '../store/CatalogContext';
 import { useConfig, useTheme } from '../store/ConfigContext';
 import { useOrders } from '../store/OrdersContext';
+import { confirmAlert } from '../utils/confirmAlert';
 import { fontSize, radii, spacing, weight } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OrderTracking'>;
@@ -41,7 +42,8 @@ export function OrderTrackingScreen({ route, navigation }: Props) {
 
   const { t } = useLang();
   const { show } = useToast();
-  const { getOrder, activeOrder, markArrived } = useOrders();
+  const { getOrder, activeOrder, markArrived, cancelOrder } = useOrders();
+  const [cancelling, setCancelling] = useState(false);
 
   const order = route.params?.orderId ? getOrder(route.params.orderId) : activeOrder;
 
@@ -68,18 +70,34 @@ export function OrderTrackingScreen({ route, navigation }: Props) {
     );
   }
 
-  return <TrackingBody order={order} navigation={navigation} onArrived={markArrived} show={show} />;
+  return (
+    <TrackingBody
+      order={order}
+      navigation={navigation}
+      onArrived={markArrived}
+      onCancel={cancelOrder}
+      cancelling={cancelling}
+      setCancelling={setCancelling}
+      show={show}
+    />
+  );
 }
 
 function TrackingBody({
   order,
   navigation,
   onArrived,
+  onCancel,
+  cancelling,
+  setCancelling,
   show,
 }: {
   order: Order;
   navigation: Props['navigation'];
   onArrived: (id: string) => void;
+  onCancel: (orderId: string, reason: string) => Promise<void>;
+  cancelling: boolean;
+  setCancelling: (v: boolean) => void;
   show: ReturnType<typeof useToast>['show'];
 }) {
     const { colors } = useTheme();
@@ -115,6 +133,45 @@ function TrackingBody({
   };
 
   const canSayArrived = isCurbside && order.status === 'ready_for_pickup';
+
+  /**
+   * §9.7 — cancellable while `placed` or `packed`, the same window a manager
+   * has. The server is the authority, so the button is hidden rather than
+   * disabled once the window closes, and a race (status advancing between
+   * render and tap) surfaces the server's own explanation instead of a
+   * generic failure.
+   */
+  const canCancel = order.status === 'placed' || order.status === 'packed';
+
+  const runCancel = async () => {
+    const ok = await confirmAlert({
+      title: t('tracking.cancelConfirmTitle'),
+      body: t('tracking.cancelConfirmBody'),
+      confirmLabel: t('tracking.cancelConfirm'),
+      cancelLabel: t('tracking.cancelKeep'),
+      destructive: true,
+    });
+    if (!ok) return;
+    setCancelling(true);
+    try {
+      await onCancel(order.id, t('tracking.cancelReason'));
+      show({
+        title: t('tracking.cancelDone'),
+        body: t('tracking.cancelDoneBody', { ref: order.reference }),
+        tone: 'success',
+        icon: 'check-circle',
+      });
+    } catch (e) {
+      show({
+        title: t('tracking.cancelFailed'),
+        body: e instanceof Error ? e.message : '',
+        tone: 'danger',
+        icon: 'error',
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
   const bayHint =
     order.bay != null ? t('tracking.arrivedHint', { bay: order.bay }) : t('tracking.arrivedHintNoBay');
 
@@ -315,6 +372,36 @@ function TrackingBody({
             </FadeSlideIn>
           ))}
         </View>
+
+        {/* Cancel — last on the page, so it is never the thing a thumb lands on
+            while scrolling the timeline. Hidden entirely once the shop starts
+            packing rather than shown disabled, because at that point the
+            customer's only route is to phone the shop. */}
+        {canCancel && (
+          <FadeSlideIn index={4}>
+            <View style={styles.cancelBlock}>
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={t('tracking.cancelCta')}
+                accessibilityState={{ disabled: cancelling, busy: cancelling }}
+                disabled={cancelling}
+                activeScale={0.985}
+                onPress={runCancel}
+                style={[styles.cancelButton, cancelling && styles.cancelButtonBusy]}
+              >
+                {cancelling ? (
+                  <ActivityIndicator size="small" color={colors.danger} />
+                ) : (
+                  <Icon name="close" size={18} color={colors.danger} />
+                )}
+                <Text style={styles.cancelLabel}>
+                  {cancelling ? t('tracking.cancelBusy') : t('tracking.cancelCta')}
+                </Text>
+              </PressableScale>
+              <Text style={styles.cancelHint}>{t('tracking.cancelWindow')}</Text>
+            </View>
+          </FadeSlideIn>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -438,6 +525,44 @@ const makeStyles = (colors: any) => StyleSheet.create({
   },
 
   timeline: { marginTop: spacing.xl },
+  // Separated from the item list by a hairline so it reads as its own decision
+  // rather than the end of the receipt.
+  cancelBlock: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLighter,
+    // `stretch`, not `center`: the button's own alignSelf:'stretch' loses to a
+    // parent alignItems:'center', which left it shrink-wrapped to its label
+    // (157px) instead of full width like every other action in the app.
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  cancelButton: {
+    height: 56,
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    gap: 9,
+    borderRadius: radii['2xl'],
+    // Tinted fill rather than a hollow outline: matches how the app already
+    // renders a destructive-but-safe action (CartScreen's remove-promo), and
+    // reads as deliberate without shouting like a solid red button would.
+    // `dangerBorder` never existed — the old `?? '#F3B4AC'` fallback silently
+    // hardcoded a hex and bypassed the theme entirely.
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.dangerSoftBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonBusy: { opacity: 0.6 },
+  cancelLabel: { fontSize: fontSize.bodyLg, fontWeight: weight.heavy, color: colors.danger },
+  cancelHint: {
+    fontSize: fontSize.caption,
+    fontWeight: weight.semibold,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   step: { flexDirection: 'row', gap: 14 },
   stepRail: { alignItems: 'center' },
   stepDot: {

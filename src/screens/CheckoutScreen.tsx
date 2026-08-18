@@ -17,7 +17,7 @@ import { type AddressDraft, useAddresses } from '../store/AddressesContext';
 import { useAuth } from '../store/AuthContext';
 import { useCart } from '../store/CartContext';
 import { useConfig, useTheme } from '../store/ConfigContext';
-import { availableCredit, useOrders } from '../store/OrdersContext';
+import { availableCredit, isUnlimitedCredit, useOrders } from '../store/OrdersContext';
 import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatMoney } from '../utils/format';
 import { ImpactStyle } from '../utils/haptics';
@@ -126,6 +126,7 @@ export function CheckoutScreen({ navigation, route }: Props) {
   const isCurbside = fulfillment === 'curbside';
   const creditApproved = !!session?.customer.creditApproved;
   const headroom = availableCredit(credit);
+  const unlimitedCredit = isUnlimitedCredit(credit);
 
   /** Pay Later is only offered to approved customers with enough headroom; a method must also be available for the chosen fulfillment. */
   const paymentMethods = useMemo(
@@ -434,10 +435,12 @@ export function CheckoutScreen({ navigation, route }: Props) {
                   method.kind === 'credit'
                     ? method.disabled
                       ? t('checkout.creditTooLow')
-                      : t('checkout.creditAvailable', {
-                          available: formatAmount(headroom),
-                          limit: formatAmount(credit.limit),
-                        })
+                      : unlimitedCredit
+                        ? t('checkout.creditUnlimited')
+                        : t('checkout.creditAvailable', {
+                            available: formatAmount(headroom),
+                            limit: formatAmount(credit.limit ?? 0),
+                          })
                     : method.kind === 'card'
                       ? t('checkout.cardSub')
                       : method.kind === 'cash'

@@ -221,7 +221,8 @@
     "placed": "Order placed",
     "placedBody": "Order {{reference}} is on its way",
     "cardSub": "Pay with credit or debit card",
-    "cashSub": "Pay in cash on delivery"
+    "cashSub": "Pay in cash on delivery",
+    "creditUnlimited": "Pay later · no limit"
   },
   "orderPlaced": {
     "title": "Order placed!",
@@ -299,7 +300,18 @@
     "paidWithCard": "Paid by card",
     "paidWithCash": "Cash on delivery",
     "noActive": "No order in progress",
-    "noActiveBody": "When you place an order it will appear here with live status."
+    "noActiveBody": "When you place an order it will appear here with live status.",
+    "cancelCta": "Cancel this order",
+    "cancelWindow": "You can cancel until the order leaves the shop.",
+    "cancelConfirmTitle": "Cancel this order?",
+    "cancelConfirmBody": "The shop will be told straight away. This cannot be undone.",
+    "cancelConfirm": "Yes, cancel it",
+    "cancelKeep": "Keep my order",
+    "cancelReason": "Cancelled by customer",
+    "cancelDone": "Order cancelled",
+    "cancelDoneBody": "Order {{ref}} has been cancelled.",
+    "cancelFailed": "Could not cancel",
+    "cancelBusy": "Cancelling…"
   },
   "credit": {
     "title": "My Credit",
@@ -316,7 +328,8 @@
     "settleInfoBody": "Pay your balance in person or by bank transfer — the shop will record it here once received.",
     "notApproved": "Credit not enabled",
     "notApprovedBody": "Ask the shop to approve your tab and it will appear here.",
-    "empty": "No credit activity yet"
+    "empty": "No credit activity yet",
+    "unlimited": "No spending limit"
   },
   "orders": {
     "title": "My Orders",
