@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '../components/Icon';
+import { ProductImage } from '../components/ProductImage';
 import {
   AnimatedConnector,
   FadeSlideIn,
@@ -15,6 +16,7 @@ import { t as tr } from '../data/catalog';
 import { flowFor, type Order, type OrderStatus } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import type { RootStackParamList } from '../navigation/types';
+import { useCatalog } from '../store/CatalogContext';
 import { useConfig, useTheme } from '../store/ConfigContext';
 import { useOrders } from '../store/OrdersContext';
 import { fontSize, radii, spacing, weight } from '../theme';
@@ -85,6 +87,7 @@ function TrackingBody({
 
   const { t, language } = useLang();
   const { config } = useConfig();
+  const { getProduct } = useCatalog();
   const isCurbside = order.fulfillment === 'curbside';
   const store = config?.store;
 
@@ -293,9 +296,12 @@ function TrackingBody({
           {order.lines.map((line, index) => (
             <FadeSlideIn key={line.variantId} index={index}>
               <View style={styles.itemRow}>
-                <View style={styles.itemIcon}>
-                  <Icon name={line.icon} size={20} color={colors.disabled} />
-                </View>
+                <ProductImage
+                  uri={line.imageUrl ?? getProduct(line.productId)?.imageUrl ?? undefined}
+                  icon={line.icon}
+                  size={40}
+                  radius={radii.md}
+                />
                 <View style={styles.itemBody}>
                   <Text style={styles.itemName} numberOfLines={1}>
                     {tr(line.name, language)}
@@ -475,14 +481,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
     borderColor: colors.borderLight,
     borderRadius: radii['2xl'],
     padding: 10,
-  },
-  itemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   itemBody: { flex: 1, minWidth: 0 },
   itemName: { fontSize: fontSize.body, fontWeight: weight.heavy, color: colors.ink },

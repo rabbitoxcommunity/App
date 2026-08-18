@@ -20,6 +20,7 @@ type RawOrderLine = {
   name: Localized;
   variantLabel: Localized;
   icon: string;
+  imageUrl?: string | null;
   fulfilledQty: number | null;
 };
 
@@ -53,6 +54,7 @@ function mapLine(l: RawOrderLine): OrderLine {
     name: l.name,
     variantLabel: l.variantLabel,
     icon: l.icon as IconName,
+    imageUrl: l.imageUrl ?? null,
   };
 }
 

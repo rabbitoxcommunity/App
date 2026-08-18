@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 
 import { Icon, type IconName } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
@@ -106,54 +107,39 @@ function ToastPreview({ sample }: { sample: ToastOptions }) {
     const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const tone = sample.tone ?? 'dark';
-  const dark = tone === 'dark' || tone === 'loading';
 
-  const palette = {
-    dark: { bg: colors.ink, title: colors.onPrimary, body: 'rgba(255,255,255,0.65)', action: colors.primaryOnDark, icon: colors.onPrimary },
-    loading: { bg: colors.ink, title: colors.onPrimary, body: 'rgba(255,255,255,0.65)', action: colors.primaryOnDark, icon: colors.onPrimary },
-    warning: { bg: colors.warningSoft, border: colors.warningSoftBorder, title: colors.warningInk, body: colors.warningInkSoft, action: colors.warning, icon: colors.warning },
-    danger: { bg: colors.dangerSoft, border: colors.dangerSoftBorder, title: colors.dangerInk, body: colors.dangerInkSoft, action: colors.danger, icon: colors.danger },
-    success: { bg: colors.primarySoft, border: colors.primarySoftBorder, title: colors.primaryDarker, body: '#4A8C2C', action: colors.primaryDark, icon: colors.primaryDark },
-  }[tone] as {
-    bg: string;
-    border?: string;
-    title: string;
-    body: string;
-    action: string;
-    icon: string;
-  };
+  // Mirrors ACCENT in components/Toast.tsx: one frosted fill for every tone,
+  // severity carried by the icon colour alone.
+  const accent = {
+    dark: colors.onPrimary,
+    loading: colors.onPrimary,
+    success: colors.primaryOnDark,
+    warning: colors.warningBright,
+    danger: colors.dangerBright,
+  }[tone] as string;
 
   return (
-    <View
-      style={[
-        styles.toast,
-        { backgroundColor: palette.bg },
-        palette.border ? { borderWidth: 1.5, borderColor: palette.border } : null,
-        dark ? styles.toastShadow : null,
-      ]}
-    >
-      {tone === 'loading' ? (
-        <ActivityIndicator color={colors.primaryOnDark} />
-      ) : sample.icon ? (
-        <Icon name={sample.icon as IconName} size={24} color={palette.icon} />
-      ) : (
-        <View style={styles.checkBubble}>
-          <Icon name="check" size={19} color={colors.onPrimary} />
-        </View>
-      )}
-
-      <View style={styles.toastText}>
-        <Text style={[styles.toastTitle, { color: palette.title }]}>{sample.title}</Text>
-        {!!sample.body && (
-          <Text style={[styles.toastBody, { color: palette.body }]}>{sample.body}</Text>
+    <View style={styles.previewRow}>
+      <BlurView intensity={60} tint="systemThickMaterialDark" style={styles.capsule}>
+        {tone === 'loading' ? (
+          <ActivityIndicator size="small" color={colors.onPrimary} />
+        ) : (
+          <Icon name={(sample.icon ?? 'check') as IconName} size={18} color={accent} />
         )}
-      </View>
 
-      {sample.action && (
-        <Text style={[styles.toastAction, { color: palette.action }]}>
-          {sample.action.label}
-        </Text>
-      )}
+        <View style={styles.capsuleText}>
+          <Text style={styles.capsuleTitle} numberOfLines={1}>{sample.title}</Text>
+          {!!sample.body && (
+            <Text style={styles.capsuleBody} numberOfLines={1}>{sample.body}</Text>
+          )}
+        </View>
+
+        {sample.action && (
+          <View style={styles.capsuleActionButton}>
+            <Text style={styles.capsuleAction}>{sample.action.label}</Text>
+          </View>
+        )}
+      </BlurView>
     </View>
   );
 }
@@ -173,31 +159,37 @@ const makeStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.md,
   },
   list: { paddingHorizontal: spacing.gutter, paddingBottom: spacing['2xl'], gap: spacing.md },
-  toast: {
+  // Centres each sample the way the live toast centres itself on screen.
+  previewRow: { alignItems: 'center' },
+  capsule: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    borderRadius: radii['2xl'],
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
-  },
-  toastShadow: {
+    gap: spacing.sm,
+    borderRadius: radii.pill,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(18, 22, 19, 0.82)',
+    maxWidth: '92%',
     shadowColor: colors.ink,
     shadowOpacity: 0.22,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 12 },
     elevation: 8,
   },
-  checkBubble: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  capsuleText: { flexShrink: 1 },
+  capsuleTitle: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.onPrimary },
+  capsuleBody: {
+    fontSize: fontSize.caption,
+    fontWeight: weight.semibold,
+    color: colors.onPrimaryMuted,
+    marginTop: 1,
   },
-  toastText: { flex: 1 },
-  toastTitle: { fontSize: fontSize.body, fontWeight: weight.heavy },
-  toastBody: { fontSize: fontSize.caption, fontWeight: weight.semibold, marginTop: 2 },
-  toastAction: { fontSize: fontSize.small, fontWeight: weight.heavy },
+  capsuleActionButton: {
+    paddingStart: spacing.sm,
+    marginStart: 2,
+    borderStartWidth: StyleSheet.hairlineWidth,
+    borderStartColor: 'rgba(255,255,255,0.25)',
+  },
+  capsuleAction: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primaryOnDark },
 });

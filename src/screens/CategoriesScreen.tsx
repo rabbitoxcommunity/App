@@ -24,6 +24,14 @@ export function CategoriesScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  const sortedCategories = React.useMemo(
+    () =>
+      [...categories].sort((a, b) =>
+        tr(a.name, language).localeCompare(tr(b.name, language), language, { sensitivity: 'base' }),
+      ),
+    [categories, language],
+  );
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -36,7 +44,7 @@ export function CategoriesScreen() {
   return (
     <Screen>
       <FlatList
-        data={categories}
+        data={sortedCategories}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

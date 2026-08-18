@@ -64,10 +64,13 @@ function useCategoryProducts(
   sortKey: SortKey,
   inStock: boolean,
   minPrice: number,
-  maxPrice: number,
+  // null = no upper limit; the param is then omitted so the server does not filter.
+  maxPrice: number | null,
 ) {
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
+  // Span of THIS category, for the filter slider.
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number } | undefined>();
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -91,13 +94,14 @@ function useCategoryProducts(
         inStock,
         // The app talks AED, the API stores fils.
         minPrice: toFils(minPrice),
-        maxPrice: toFils(maxPrice),
+        ...(maxPrice != null ? { maxPrice: toFils(maxPrice) } : {}),
         page: 1,
         limit: PAGE_SIZE,
       });
       if (run !== runRef.current) return;
       setItems(res.items);
       setTotal(res.total);
+      setPriceRange(res.priceRange);
       exhaustedRef.current = res.items.length === 0 || res.items.length >= res.total;
     } catch {
       if (run !== runRef.current) return;
@@ -124,7 +128,7 @@ function useCategoryProducts(
         sort: serverSort,
         inStock,
         minPrice: toFils(minPrice),
-        maxPrice: toFils(maxPrice),
+        ...(maxPrice != null ? { maxPrice: toFils(maxPrice) } : {}),
         page: next,
         limit: PAGE_SIZE,
       });
@@ -146,7 +150,7 @@ function useCategoryProducts(
     }
   }, [categoryId, serverSort, inStock, minPrice, maxPrice, loading, loadingMore]);
 
-  return { items, total, loading, loadingMore, reload: load, loadMore };
+  return { items, total, loading, loadingMore, reload: load, loadMore, priceRange };
 }
 
 export function CategoryListingScreen({ route, navigation }: Props) {
@@ -171,6 +175,7 @@ export function CategoryListingScreen({ route, navigation }: Props) {
     loadingMore,
     reload: reloadPage,
     loadMore,
+    priceRange,
   } = useCategoryProducts(
     categoryId,
     filters.sort,
@@ -241,7 +246,16 @@ export function CategoryListingScreen({ route, navigation }: Props) {
           title={category ? tr(category.name, language) : ''}
           onBack={navigation.goBack}
           backLabel={t('common.back')}
-          trailing={<IconButton name="search" accessibilityLabel={t('common.search')} />}
+          trailing={
+            <IconButton
+              name="search"
+              accessibilityLabel={t('common.search')}
+              // Was rendered with no onPress at all — IconButton's handler is
+              // optional, so this compiled fine and simply did nothing when
+              // tapped. Matches how the Categories tab opens search.
+              onPress={() => navigation.navigate('Search', { query: '' })}
+            />
+          }
         />
 
         {/* Filter chip row */}
@@ -380,6 +394,7 @@ export function CategoryListingScreen({ route, navigation }: Props) {
         visible={sheetOpen}
         filters={filters}
         subcategories={category?.subcategories ?? []}
+        priceRange={priceRange}
         resultCount={(draft) => applyFilters(allProducts, draft).length}
         onClose={() => setSheetOpen(false)}
         onApply={(next) => {

@@ -79,16 +79,23 @@ export function CartScreen() {
   const onApplyPromo = async () => {
     const code = promoInput.trim();
     if (!code) return;
-    if (await applyPromo(code)) {
-      setPromoInput('');
+    const result = await applyPromo(code);
+    setPromoInput('');
+    if (result.applied) {
       show({
         title: t('toast.promoApplied', { code: code.toUpperCase() }),
         tone: 'success',
         icon: 'promo',
       });
     } else {
-      setPromoInput('');
-      show({ title: t('toast.promoInvalid'), tone: 'warning', icon: 'error' });
+      // The server says *why* it was refused — "Add 6 AED more to use this
+      // code" is worth far more to the shopper than "isn't valid", which reads
+      // as a typo they cannot fix. Generic text only when there is no reason.
+      show({
+        title: result.reason || t('toast.promoInvalid'),
+        tone: 'warning',
+        icon: 'error',
+      });
     }
   };
 

@@ -95,7 +95,14 @@ export async function listCategories(): Promise<Category[]> {
   return raw.map(mapCategory);
 }
 
-export type ProductPage = { items: Product[]; page: number; limit: number; total: number };
+export type ProductPage = {
+  items: Product[];
+  page: number;
+  limit: number;
+  total: number;
+  /** Price span of the whole result set (not just this page), in AED. */
+  priceRange: { min: number; max: number };
+};
 
 export type ListProductsParams = {
   category?: string;
@@ -119,11 +126,24 @@ function toQuery(params: Record<string, string | number | boolean | undefined>):
 }
 
 export async function listProducts(params: ListProductsParams = {}): Promise<ProductPage> {
-  const raw = await api.get<{ items: RawProduct[]; page: number; limit: number; total: number }>(
+  const raw = await api.get<{
+    items: RawProduct[];
+    page: number;
+    limit: number;
+    total: number;
+    priceRange?: { min: number; max: number };
+  }>(
     `/products${toQuery(params)}`,
     { skipAuth: true },
   );
-  return { ...raw, items: raw.items.map(mapProduct) };
+  return {
+    ...raw,
+    items: raw.items.map(mapProduct),
+    priceRange: {
+      min: fromFils(raw.priceRange?.min ?? 0),
+      max: fromFils(raw.priceRange?.max ?? 0),
+    },
+  };
 }
 
 export async function getProduct(id: string): Promise<Product> {
@@ -131,10 +151,32 @@ export async function getProduct(id: string): Promise<Product> {
   return mapProduct(raw);
 }
 
-export async function searchProducts(q: string, params: { page?: number; limit?: number } = {}): Promise<ProductPage> {
-  const raw = await api.get<{ items: RawProduct[]; page: number; limit: number; total: number }>(
+export type SearchParams = {
+  page?: number;
+  limit?: number;
+  sort?: ListProductsParams['sort'];
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+};
+
+export async function searchProducts(q: string, params: SearchParams = {}): Promise<ProductPage> {
+  const raw = await api.get<{
+    items: RawProduct[];
+    page: number;
+    limit: number;
+    total: number;
+    priceRange?: { min: number; max: number };
+  }>(
     `/search${toQuery({ q, ...params })}`,
     { skipAuth: true },
   );
-  return { ...raw, items: raw.items.map(mapProduct) };
+  return {
+    ...raw,
+    items: raw.items.map(mapProduct),
+    priceRange: {
+      min: fromFils(raw.priceRange?.min ?? 0),
+      max: fromFils(raw.priceRange?.max ?? 0),
+    },
+  };
 }

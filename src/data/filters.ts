@@ -8,18 +8,31 @@ export type FilterState = {
   sort: SortKey;
   subcategoryIds: string[];
   minPrice: number;
-  maxPrice: number;
+  /**
+   * null means NO upper limit.
+   *
+   * This used to default to PRICE_BOUNDS.max (50), which silently price-filtered
+   * the catalogue before the customer touched anything — 158 published products
+   * priced above AED 50, including every phone, were unreachable because the
+   * slider could not go past its own ceiling. Storing "unbounded" explicitly
+   * also means raising the ceiling later cannot resurrect the bug.
+   */
+  maxPrice: number | null;
   inStockOnly: boolean;
 };
 
-/** Widest slider bounds; the design shows AED 5 – 40. */
+/**
+ * Fallback slider bounds only, used before the tenant's real range has loaded.
+ * The live ceiling comes from `/config`'s priceRange, derived from what the shop
+ * actually sells — a hardcoded one drifts the moment they stock something dearer.
+ */
 export const PRICE_BOUNDS = { min: 0, max: 50 } as const;
 
 export const defaultFilters = (): FilterState => ({
   sort: 'popular',
   subcategoryIds: [],
   minPrice: PRICE_BOUNDS.min,
-  maxPrice: PRICE_BOUNDS.max,
+  maxPrice: null,
   inStockOnly: true,
 });
 
@@ -61,7 +74,8 @@ export function applyFilters(products: Product[], filters: FilterState): Product
       return false;
     }
     const { min } = displayPrice(product);
-    return min >= filters.minPrice && min <= filters.maxPrice;
+    if (min < filters.minPrice) return false;
+    return filters.maxPrice == null || min <= filters.maxPrice;
   });
 
   const sorted = [...filtered];

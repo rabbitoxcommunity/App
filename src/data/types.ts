@@ -175,6 +175,12 @@ export type OrderLine = {
   name: Localized;
   variantLabel: Localized;
   icon: IconName;
+  /**
+   * Product photo captured at purchase time. Null on orders placed before the
+   * field existed, and on products the shop never gave a photo — callers fall
+   * back to the live catalogue, then to `icon`.
+   */
+  imageUrl?: string | null;
 };
 
 export type Order = {

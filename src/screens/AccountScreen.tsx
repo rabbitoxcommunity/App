@@ -160,9 +160,12 @@ export function AccountScreen() {
                   activeScale={0.985}
                   style={[
                     styles.row,
-                    // The design highlights the language row on a tinted card.
-                    isLanguage ? styles.rowHighlighted : null,
-                    !isLanguage && index > 0 ? styles.rowDivided : null,
+                    // Every row shares one paddingHorizontal so their icons and
+                    // labels line up on the left. The language row used to sit on
+                    // a tinted card with its own larger padding, which pushed it
+                    // 6px right of the others. It keeps the accent colour and
+                    // heavier label — just not the background.
+                    index > 0 ? styles.rowDivided : null,
                   ]}
                 >
                   <Icon
@@ -246,11 +249,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 4,
   },
   rowDivided: { borderTopWidth: 1, borderTopColor: colors.borderLighter },
-  rowHighlighted: {
-    paddingHorizontal: 10,
-    borderRadius: radii.lg,
-    backgroundColor: colors.primaryTintedBg,
-  },
   rowLabel: { flex: 1, fontSize: fontSize.bodyLg, fontWeight: weight.bold, color: colors.ink },
   rowLabelStrong: { fontWeight: weight.heavy },
   rowValue: { fontSize: fontSize.small, fontWeight: weight.bold, color: colors.textSecondary },

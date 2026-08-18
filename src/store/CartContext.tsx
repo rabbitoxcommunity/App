@@ -8,7 +8,6 @@ import React, {
   useState,
 } from 'react';
 
-import { toFils } from '../api/client';
 import { getVariant, isPurchasable } from '../data/catalog';
 import type { CartLine, FulfillmentType, Product, ProductVariant } from '../data/types';
 import { useCatalog } from './CatalogContext';
@@ -45,7 +44,8 @@ type CartContextValue = {
   setQuantity: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
   clear: () => void;
-  applyPromo: (code: string) => Promise<boolean>;
+  /** Resolves with the server's verdict — `reason` explains a rejection ("Add 6 AED more…"). */
+  applyPromo: (code: string) => Promise<{ applied: boolean; reason?: string }>;
   removePromo: () => void;
 };
 
@@ -180,13 +180,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const applyPromo = useCallback(
     async (code: string) => {
       const normalized = code.trim().toUpperCase();
-      if (!normalized) return false;
-      const subtotal = toFils(lines.reduce((sum, l) => sum + l.lineTotal, 0));
+      if (!normalized) return { applied: false };
+      // AED, not fils: validatePromo() converts to fils itself. Converting here
+      // too sent a subtotal 100x too large, so minimum-basket promos validated
+      // as applied and were then correctly rejected by cart/price — a success
+      // message with no discount on the total.
+      const subtotalAed = lines.reduce((sum, l) => sum + l.lineTotal, 0);
       const { validatePromo } = await import('../api/promos');
-      const result = await validatePromo(normalized, subtotal).catch(() => ({ applied: false }) as const);
-      if (!result.applied) return false;
+      // A network failure is not a verdict — fall through with no reason so the
+      // UI shows its own generic message rather than inventing one.
+      const result = await validatePromo(normalized, subtotalAed).catch(() => ({
+        applied: false,
+        reason: undefined as string | undefined,
+      }));
+      if (!result.applied) return { applied: false, reason: result.reason };
       setPromoCode(normalized);
-      return true;
+      return { applied: true };
     },
     [lines],
   );

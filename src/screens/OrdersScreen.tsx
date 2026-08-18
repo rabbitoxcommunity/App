@@ -6,12 +6,14 @@ import { Icon } from '../components/Icon';
 import { FadeSlideIn, PressableScale } from '../components/motion';
 import { useToast } from '../components/Toast';
 import { OrderCardSkeleton, SkeletonList } from '../components/Skeleton';
+import { ProductImage } from '../components/ProductImage';
 import { EmptyState, Screen } from '../components/ui';
 import type { Order } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import { useGlassTabBarHeight } from '../navigation/GlassTabBar';
 import type { RootNavigation } from '../navigation/types';
 import { useCart } from '../store/CartContext';
+import { useCatalog } from '../store/CatalogContext';
 import { useOrders } from '../store/OrdersContext';
 import { fontSize, radii, spacing, weight } from '../theme';
 import { formatAmount, formatShortDate } from '../utils/format';
@@ -32,6 +34,7 @@ export function OrdersScreen() {
   const { activeOrders, pastOrders, refresh, isLoading, isLoadingMore, hasMoreOrders, loadMoreOrders } =
     useOrders();
   const { addItem } = useCart();
+  const { getProduct } = useCatalog();
   const tabBarHeight = useGlassTabBarHeight();
 
   const [tab, setTab] = useState<'past' | 'active'>('past');
@@ -218,11 +221,23 @@ export function OrdersScreen() {
                   {!cancelled && (
                     <>
                       <View style={styles.thumbs}>
-                        {thumbs.map((line) => (
-                          <View key={line.variantId} style={styles.thumb}>
-                            <Icon name={line.icon} size={22} color={colors.disabled} />
-                          </View>
-                        ))}
+                        {thumbs.map((line) => {
+                          // The order's own snapshot first, so a past order keeps
+                          // the photo it was bought with. Orders placed before
+                          // the snapshot existed fall back to the live catalogue,
+                          // and ProductImage falls back to the glyph from there.
+                          const uri = line.imageUrl ?? getProduct(line.productId)?.imageUrl ?? undefined;
+                          return (
+                            <ProductImage
+                              key={line.variantId}
+                              uri={uri}
+                              icon={line.icon}
+                              size={52}
+                              radius={13}
+                              style={uri ? undefined : styles.thumbEmpty}
+                            />
+                          );
+                        })}
                         {overflow > 0 && (
                           <View style={[styles.thumb, styles.thumbOverflow]}>
                             <Text style={styles.thumbOverflowLabel}>
@@ -352,6 +367,13 @@ const makeStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.borderDashed,
+    borderStyle: 'dashed',
+  },
+  // The dashed outline reads as "nothing here", so it belongs only on the
+  // glyph fallback — a real photo fills the tile and wants a clean edge.
+  thumbEmpty: {
     borderWidth: 1.5,
     borderColor: colors.borderDashed,
     borderStyle: 'dashed',

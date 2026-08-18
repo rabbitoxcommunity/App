@@ -10,7 +10,7 @@ import { ProductCard } from '../components/ProductCard';
 import { Skeleton, SkeletonList, CategorySkeleton, ProductCardSkeleton } from '../components/Skeleton';
 import { Screen, IconButton, SectionHeader, TextLink } from '../components/ui';
 import { t as tr } from '../data/catalog';
-import type { Category } from '../data/types';
+import type { Category, Product } from '../data/types';
 import { defaultFilters, type FilterState, applyFilters } from '../data/filters';
 import { FilterSheet } from './FilterSheet';
 import { useAddToCart } from '../hooks/useAddToCart';
@@ -41,7 +41,7 @@ export function HomeScreen() {
   const { t, language } = useLang();
   const navigation = useNavigation<RootNavigation>();
   const { addProduct } = useAddToCart();
-  const { categories, popularProducts, isLoading, reload } = useCatalog();
+  const { categories, popularProducts, getProduct, isLoading, reload } = useCatalog();
   const { addresses, primaryId } = useAddresses();
   const { history, recordSearch, clearHistory } = useSearchHistory();
   const tabBarHeight = useGlassTabBarHeight();
@@ -50,6 +50,7 @@ export function HomeScreen() {
   const [filters, setFilters] = useState<FilterState>(defaultFilters());
   const [sheetOpen, setSheetOpen] = useState(false);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [curatedPopular, setCuratedPopular] = useState<Product[] | null>(null);
   const [activeAdIndex, setActiveAdIndex] = useState(0);
   const [sliderWidth, setSliderWidth] = useState(Dimensions.get('window').width - 52);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,7 +63,12 @@ export function HomeScreen() {
 
   useEffect(() => {
     getHome()
-      .then((home) => setBanners(home.banners))
+      .then((home) => {
+        setBanners(home.banners);
+        // `popular` used to be fetched and thrown away, so a shop's curated rail
+        // (Merchandising.popularProductIds) never reached the app at all.
+        setCuratedPopular(home.popular);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -83,7 +89,23 @@ export function HomeScreen() {
     [navigation],
   );
 
-  const popular = useMemo(() => popularProducts(8), [popularProducts]);
+  /**
+   * The server's rail wins: it is the shop's curated list, or an order-derived
+   * top-10 when nothing is curated (see jobs/popularity.ts). The client-side
+   * sort is only a fallback for a failed /home request or a brand-new shop with
+   * neither curation nor sales — without it the rail would render empty.
+   *
+   * Stock is overlaid from CatalogContext so `stock.changed` still shows here
+   * instantly, since these rows no longer come from that context.
+   */
+  const popular = useMemo(() => {
+    const source =
+      curatedPopular && curatedPopular.length > 0 ? curatedPopular : popularProducts(8);
+    return source.slice(0, 8).map((p) => {
+      const live = getProduct(p.id);
+      return live ? { ...p, variants: live.variants } : p;
+    });
+  }, [curatedPopular, popularProducts, getProduct]);
   const primaryAddress = addresses.find((a) => a.id === primaryId);
 
   const popularFiltered = useMemo(() => {

@@ -12,7 +12,7 @@ import { defaultFilters, PRICE_BOUNDS, SORT_KEYS, type FilterState } from '../da
 import type { Subcategory } from '../data/types';
 import { useLang } from '../hooks/useLang';
 import { fontSize, radii, spacing, weight } from '../theme';
-import { useTheme } from "../store/ConfigContext";
+import { useConfig, useTheme } from "../store/ConfigContext";
 
 /**
  * Screen 03b — Filter & sort. Edits stay local until "Show N items" is pressed,
@@ -23,6 +23,7 @@ export function FilterSheet({
   filters,
   subcategories,
   resultCount,
+  priceRange,
   onClose,
   onApply,
 }: {
@@ -31,6 +32,11 @@ export function FilterSheet({
   subcategories: Subcategory[];
   /** Live count for the *draft* filters, computed by the caller. */
   resultCount: (draft: FilterState) => number;
+  /**
+   * Price span of the list being filtered, so the slider matches what is on
+   * screen. Omitted (Home) falls back to the tenant-wide range from /config.
+   */
+  priceRange?: { min: number; max: number };
   onClose: () => void;
   onApply: (next: FilterState) => void;
 }) {
@@ -38,6 +44,17 @@ export function FilterSheet({
     const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const { t, language } = useLang();
+  const { config } = useConfig();
+  /**
+   * Ceiling tracks the list being filtered, not the whole shop: CHOCOLATES tops
+   * out at AED 48 while the catalogue reaches 645, which left most of the track
+   * unusable. Rounded UP to a whole AED so the dearest product is always
+   * reachable on a step:1 slider.
+   */
+  const priceCeiling = Math.max(
+    1,
+    Math.ceil(priceRange?.max ?? config?.priceRange?.max ?? PRICE_BOUNDS.max),
+  );
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<FilterState>(filters);
 
@@ -112,18 +129,31 @@ export function FilterSheet({
         {/* Price range */}
         <View style={styles.groupHeader}>
           <Text style={styles.groupTitle}>{t('filters.priceRange')}</Text>
+          {/* Reads as the dearest product in THIS list, e.g. "AED 0 – 48" in
+              CHOCOLATES. `maxPrice: null` still means "no upper limit"
+              internally; it simply displays as that top price. */}
           <Text style={styles.groupValue}>
-            {t('filters.priceRangeValue', { min: draft.minPrice, max: draft.maxPrice })}
+            {t('filters.priceRangeValue', {
+              min: draft.minPrice,
+              max: draft.maxPrice ?? priceCeiling,
+            })}
           </Text>
         </View>
         <RangeSlider
           min={PRICE_BOUNDS.min}
-          max={PRICE_BOUNDS.max}
+          max={priceCeiling}
           step={1}
           low={draft.minPrice}
-          high={draft.maxPrice}
+          // null (no limit) sits at the top of the track.
+          high={draft.maxPrice ?? priceCeiling}
           onChange={(low, high) =>
-            setDraft((d) => ({ ...d, minPrice: low, maxPrice: high }))
+            setDraft((d) => ({
+              ...d,
+              minPrice: low,
+              // At the ceiling the filter is released entirely rather than
+              // pinned to a number, so nothing is ever excluded by default.
+              maxPrice: high >= priceCeiling ? null : high,
+            }))
           }
         />
 

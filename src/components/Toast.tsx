@@ -50,15 +50,6 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-type ToastStyleConfig = {
-  bg: string;
-  border?: string;
-  title: string;
-  body: string;
-  action: string;
-  icon: string;
-};
-
 /** Height of the bottom tab bar the toast floats above (design: 86px). */
 const TAB_BAR_HEIGHT = 62;
 
@@ -144,64 +135,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<ToastContextValue>(() => ({ show, hide }), [show, hide]);
 
-    const TYPE_CONFIG: Record<ToastTone, ToastStyleConfig> = React.useMemo(() => ({
-      dark: {
-        bg: colors.ink,
-        title: colors.onPrimary,
-        body: 'rgba(255,255,255,0.65)',
-        action: colors.primaryOnDark,
-        icon: colors.onPrimary,
-      },
-      loading: {
-        bg: colors.ink,
-        title: colors.onPrimary,
-        body: 'rgba(255,255,255,0.65)',
-        action: colors.primaryOnDark,
-        icon: colors.onPrimary,
-      },
-      success: {
-        bg: colors.primarySoft,
-        border: colors.primarySoftBorder,
-        title: colors.primaryDarker,
-        body: '#4A8C2C',
-        action: colors.primaryDark,
-        icon: colors.primaryDark,
-      },
-      error: {
-        bg: colors.dangerSoft,
-        border: colors.dangerSoftBorder,
-        title: colors.dangerInk,
-        body: colors.dangerInkSoft,
-        action: colors.danger,
-        icon: colors.danger,
-      },
-      warning: {
-        bg: colors.warningSoft,
-        border: colors.warningSoftBorder,
-        title: colors.warningInk,
-        body: colors.warningInkSoft,
-        action: colors.warning,
-        icon: colors.warning,
-      },
-      danger: {
-        bg: colors.dangerSoft,
-        border: colors.dangerSoftBorder,
-        title: colors.dangerInk,
-        body: colors.dangerInkSoft,
-        action: colors.danger,
-        icon: colors.danger,
-      },
-      system: {
-        bg: colors.primarySoft,
-        border: colors.primarySoftBorder,
-        title: colors.primaryDarker,
-        body: colors.primaryDark,
-        action: colors.primaryDark,
-        icon: colors.primaryDark,
-      },
+    /**
+     * Severity is the ONLY thing tone changes now: the capsule fill is the same
+     * frosted dark in every case, so each tone just picks an icon colour that
+     * stays legible on it. The previous per-tone card palette (soft tinted
+     * backgrounds, matching borders, per-tone title/body inks) is gone with the
+     * card itself.
+     */
+    const ACCENT: Record<ToastTone, string> = React.useMemo(() => ({
+      dark: colors.onPrimary,
+      loading: colors.onPrimary,
+      success: colors.primaryOnDark,
+      warning: colors.warningBright,
+      danger: colors.dangerBright,
     }), [colors]);
 
-  const tone = (toast?.tone && TYPE_CONFIG[toast.tone as keyof typeof TYPE_CONFIG]) ?? TYPE_CONFIG.dark;
+  const accent = ACCENT[toast?.tone ?? 'dark'] ?? colors.onPrimary;
   const isHud = toast?.variant === 'hud';
 
   return (
@@ -246,33 +195,31 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           ]}
           {...pan.panHandlers}
         >
-          <View
+          {/* A capsule that hugs its content rather than a full-width card, so
+              a short confirmation reads as a small pill and only a long one
+              approaches the screen edges. The frosted fill is neutral in every
+              tone — severity is carried by the icon colour alone. */}
+          <BlurView
+            intensity={60}
+            tint="systemThickMaterialDark"
             accessibilityLiveRegion="polite"
-            style={[
-              styles.toast,
-              { backgroundColor: tone.bg },
-              tone.border ? { borderWidth: 1.5, borderColor: tone.border } : null,
-              toast.tone === 'dark' || toast.tone === 'loading' || !toast.tone
-                ? theme.shadow.toast
-                : null,
-            ]}
+            style={[styles.capsule, theme.shadow.toast]}
           >
             {toast.tone === 'loading' ? (
-              <ActivityIndicator color={colors.primaryOnDark} />
-            ) : toast.icon ? (
-              <Icon name={toast.icon} size={24} color={tone.icon} />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
-              <View style={styles.checkBubble}>
-                <Icon name="check" size={19} color={colors.onPrimary} />
-              </View>
+              <Icon name={toast.icon ?? 'check'} size={18} color={accent} />
             )}
 
             <View style={styles.text}>
-              <Text style={[styles.title, { color: tone.title }]} numberOfLines={2}>
+              <Text style={styles.title} numberOfLines={1}>
                 {toast.title}
               </Text>
+              {/* Kept, though the capsule is single-line by default: ~a third of
+                  call sites pass a body (the product just added, the failing
+                  field), and dropping it would lose that detail entirely. */}
               {!!toast.body && (
-                <Text style={[styles.body, { color: tone.body }]} numberOfLines={2}>
+                <Text style={styles.body} numberOfLines={1}>
                   {toast.body}
                 </Text>
               )}
@@ -286,11 +233,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   hide();
                   toast.action?.onPress();
                 }}
+                style={styles.actionButton}
               >
-                <Text style={[styles.action, { color: tone.action }]}>{toast.action.label}</Text>
+                <Text style={styles.action}>{toast.action.label}</Text>
               </Pressable>
             )}
-          </View>
+          </BlurView>
         </Animated.View>
       )}
     </ToastContext.Provider>
@@ -337,29 +285,40 @@ const makeStyles = (colors: any) => StyleSheet.create({
     color: colors.onPrimary,
     textAlign: 'center',
   },
+  // Spans the screen and centres the capsule, rather than insetting it to the
+  // gutters — the capsule sizes itself to its text and sits in the middle.
   wrapper: {
     position: 'absolute',
-    start: spacing.lg,
-    end: spacing.lg,
+    start: 0,
+    end: 0,
+    alignItems: 'center',
   },
-  toast: {
+  capsule: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    borderRadius: radii['2xl'],
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    borderRadius: radii.pill,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    // Clips the blur to the pill on Android, where it would otherwise paint
+    // past the rounded corners.
+    overflow: 'hidden',
+    // Behind the blur: on Android expo-blur can fall back to nearly nothing,
+    // and white text on an untinted background would be unreadable.
+    backgroundColor: 'rgba(18, 22, 19, 0.82)',
+    // Long messages stop short of the edges instead of running the full width.
+    maxWidth: '92%',
   },
-  checkBubble: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  // `shrink`, not `flex: 1` — the text block must not stretch the capsule to
+  // fill the row, or every toast would be full-width again.
+  text: { flexShrink: 1 },
+  title: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.onPrimary },
+  body: { fontSize: fontSize.caption, fontWeight: weight.semibold, color: colors.onPrimaryMuted, marginTop: 1 },
+  actionButton: {
+    paddingStart: spacing.sm,
+    marginStart: 2,
+    borderStartWidth: StyleSheet.hairlineWidth,
+    borderStartColor: 'rgba(255,255,255,0.25)',
   },
-  text: { flex: 1 },
-  title: { fontSize: fontSize.body, fontWeight: weight.heavy },
-  body: { fontSize: fontSize.caption, fontWeight: weight.semibold, marginTop: 2 },
-  action: { fontSize: fontSize.small, fontWeight: weight.heavy },
+  action: { fontSize: fontSize.small, fontWeight: weight.heavy, color: colors.primaryOnDark },
 });

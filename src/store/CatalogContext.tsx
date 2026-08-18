@@ -36,6 +36,21 @@ type StockChangePayload = {
   lowStockCount?: number | null;
 };
 
+/**
+ * Fresh rows win, existing order is kept, genuinely new ids are appended.
+ * Never removes anything — pruning only happens once a full walk has finished
+ * and we actually know what the server still has.
+ */
+function mergeById(prev: Product[], incoming: Product[]): Product[] {
+  if (prev.length === 0) return incoming;
+  if (incoming.length === 0) return prev;
+  const byId = new Map(incoming.map((p) => [p.id, p]));
+  const existing = new Set(prev.map((p) => p.id));
+  const merged = prev.map((p) => byId.get(p.id) ?? p);
+  const added = incoming.filter((p) => !existing.has(p.id));
+  return added.length > 0 ? [...merged, ...added] : merged;
+}
+
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { tenant } = useTenant();
   const { session } = useAuth();
@@ -71,9 +86,19 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       if (run !== runRef.current) return;
 
       setCategories(cats);
-      setProducts(first.items);
+      // Merge, never replace. This used to be `setProducts(first.items)`, which
+      // on a RELOAD threw the whole catalogue away and put back only page 1 —
+      // so for the rest of the walk every product on a later page was simply
+      // absent from state, and anything resolving one by id treated it as gone.
+      // Pull-to-refresh on a product from page 3 rendered "Unavailable", and
+      // the cart silently dropped lines, until that page happened to land.
+      setProducts((prev) => mergeById(prev, first.items));
       // Usable now — do not wait on the remaining pages.
       setIsLoading(false);
+
+      // Every id this walk has seen. Merging can only ever add, so this is what
+      // lets the finished walk prune products deleted since the last load.
+      const walkedIds = new Set(first.items.map((p) => p.id));
 
       const totalPages = Math.max(1, Math.ceil(first.total / PAGE_LIMIT));
       for (let start = 2; start <= totalPages; start += PARALLEL_PAGES) {
@@ -83,14 +108,20 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
         const pages = await Promise.all(batch.map((p) => listProducts({ page: p, limit: PAGE_LIMIT })));
         if (run !== runRef.current) return;
 
-        setProducts((prev) => {
-          // Dedupe by id: a product created or deleted mid-walk shifts every
-          // later page, which would otherwise duplicate or drop rows.
-          const seen = new Set(prev.map((p) => p.id));
-          const incoming = pages.flatMap((r) => r.items).filter((p) => !seen.has(p.id));
-          return incoming.length > 0 ? [...prev, ...incoming] : prev;
-        });
+        // Dedupe by id: a product created or deleted mid-walk shifts every
+        // later page, which would otherwise duplicate or drop rows.
+        const incoming = pages.flatMap((r) => r.items).filter((p) => !walkedIds.has(p.id));
+        for (const p of incoming) walkedIds.add(p.id);
+        if (incoming.length > 0) setProducts((prev) => mergeById(prev, incoming));
       }
+
+      // Walk complete: drop anything the server no longer returns. Pruning from
+      // current state rather than swapping in the fetched array keeps any
+      // `stock.changed` patch that landed mid-walk.
+      setProducts((prev) => {
+        const pruned = prev.filter((p) => walkedIds.has(p.id));
+        return pruned.length === prev.length ? prev : pruned;
+      });
     } catch (e) {
       if (run !== runRef.current) return;
       setError(e instanceof Error ? e.message : 'Failed to load the catalogue.');

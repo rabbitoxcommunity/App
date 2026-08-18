@@ -39,6 +39,9 @@ export const colors = {
   chipDisabled: '#EEF0F1',
 
   warning: '#B57A05',
+  // On-dark counterpart to `warning`, mirroring danger/dangerBright: the base
+  // amber is tuned for light surfaces and goes muddy on the frosted toast.
+  warningBright: '#FFB020',
   warningInk: '#8A5C03',
   warningInkSoft: '#A6791F',
   warningSoft: '#FDF2DE',

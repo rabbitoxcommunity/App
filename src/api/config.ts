@@ -17,10 +17,13 @@ export type TenantConfig = {
     carColours: { hex: string; name: Localized }[];
     carBodyTypes: Array<'sedan' | 'suv' | 'pickup' | 'coupe'>;
   };
+  /** Real span of the shop's published prices, in AED — drives the filter slider. */
+  priceRange: { min: number; max: number };
 };
 
 type RawConfig = {
   name: Localized;
+  priceRange?: { min: number; max: number };
   branding: TenantConfig['branding'];
   locale: TenantConfig['locale'];
   store: { name: Localized; details: Localized; address: Localized; phone: string; baysFree: number };
@@ -46,6 +49,10 @@ export async function getConfig(): Promise<TenantConfig> {
       ...raw.settings,
       deliveryFee: fromFils(raw.settings.deliveryFee),
       minOrder: raw.settings.minOrder != null ? fromFils(raw.settings.minOrder) : null,
+    },
+    priceRange: {
+      min: fromFils(raw.priceRange?.min ?? 0),
+      max: fromFils(raw.priceRange?.max ?? 0),
     },
   };
 }

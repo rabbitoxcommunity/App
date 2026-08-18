@@ -3,11 +3,12 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomSheet } from '../components/BottomSheet';
-import { Icon } from '../components/Icon';
+import { ProductImage } from '../components/ProductImage';
 import { PrimaryButton } from '../components/ui';
 import { t as tr } from '../data/catalog';
 import type { Order, PaymentMethodKind } from '../data/types';
 import { useLang } from '../hooks/useLang';
+import { useCatalog } from '../store/CatalogContext';
 import { fontSize, radii, spacing, weight } from '../theme';
 import { formatMoney, formatShortDate } from '../utils/format';
 import { useTheme } from "../store/ConfigContext";
@@ -37,6 +38,7 @@ export function ReceiptSheet({
     const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const { t, language } = useLang();
+  const { getProduct } = useCatalog();
   const insets = useSafeAreaInsets();
   // Held through the closing animation so the body does not blank out mid-slide.
   const [shown, setShown] = React.useState<Order | null>(order);
@@ -74,9 +76,12 @@ export function ReceiptSheet({
 
         {shown.lines.map((line) => (
           <View key={`${line.productId}-${line.variantId}`} style={styles.line}>
-            <View style={styles.lineIcon}>
-              <Icon name={line.icon} size={20} color={colors.disabled} />
-            </View>
+            <ProductImage
+              uri={line.imageUrl ?? getProduct(line.productId)?.imageUrl ?? undefined}
+              icon={line.icon}
+              size={40}
+              radius={radii.md}
+            />
             <View style={styles.lineBody}>
               <Text style={styles.lineName} numberOfLines={1}>
                 {tr(line.name, language)}
@@ -164,14 +169,6 @@ const makeStyles = (colors: any) => StyleSheet.create({
     marginBottom: spacing.md,
   },
   line: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: 14 },
-  lineIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   lineBody: { flex: 1, minWidth: 0 },
   lineName: { fontSize: fontSize.body, fontWeight: weight.bold, color: colors.ink },
   lineMeta: {

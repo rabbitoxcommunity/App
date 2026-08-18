@@ -5,13 +5,49 @@ import { Platform } from 'react-native';
 
 /**
  * Thin fetch wrapper for the Node/Express + MongoDB backend (BACKEND-DESIGN
- * §10). The API origin is still baked into `app.json`'s `extra` at build
- * time, but the tenant is not — this is a shared app across every shop on
+ * §10). The tenant is NOT baked in — this is a shared app across every shop on
  * the platform, chosen at runtime via the shop picker (TenantContext) and
  * persisted here the same way the refresh token is.
  */
+
+/**
+ * In development the API host is taken from whichever host is already serving
+ * the bundle, rather than from a value typed into app.json.
+ *
+ * A hardcoded host can only ever be right for one target: `localhost` is
+ * unreachable from a phone in Expo Go (there, localhost is the phone), and a
+ * LAN IP breaks the moment DHCP hands out a different one — both of which
+ * happened here. Expo already knows the right host because the device just
+ * downloaded the bundle from it, so reuse that and only swap the port.
+ *
+ * Production builds have no dev host, so they fall through to app.json.
+ */
+function resolveDevApiBase(): string | null {
+  const configured = Constants.expoConfig?.extra?.apiBaseUrl as string | undefined;
+  // hostUri is "192.168.0.19:8081" (device) or "localhost:8081" (web/simulator).
+  const hostUri =
+    Constants.expoConfig?.hostUri ??
+    (Constants.expoGoConfig as { debuggerHost?: string } | undefined)?.debuggerHost;
+  if (!hostUri) return null;
+
+  const host = hostUri.split('/')[0]?.split(':')[0];
+  if (!host) return null;
+
+  // Keep the port and path from the configured value so only the host is
+  // inferred — the API does not have to live on the Metro port.
+  try {
+    const url = new URL(configured ?? 'http://localhost:4000/api/v1');
+    url.hostname = host;
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return `http://${host}:4000/api/v1`;
+  }
+}
+
 export const API_BASE_URL: string =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'http://localhost:4000/api/v1';
+  resolveDevApiBase() ??
+  (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
+  'http://localhost:4000/api/v1';
 
 /** §14 — Socket.io is mounted on the same origin as the HTTP API, one namespace per tenant. */
 export const SOCKET_BASE_URL: string = API_BASE_URL.replace(/\/api(\/v\d+)?\/?$/, '');
